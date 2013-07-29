@@ -22,6 +22,7 @@ import org.hamcrest.core.IsNot;
 import org.hamcrest.core.IsNull;
 import org.junit.Assert;
 import org.junit.Test;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.data.neo4j.core.GraphDatabase;
 
@@ -30,6 +31,30 @@ import org.springframework.data.neo4j.core.GraphDatabase;
  * @since 29.03.11
  */
 public class GraphDatabaseFactoryTests {
+
+    @Test
+    public void shouldBeAbleToCreateDBUsingFactoriesViaXML() throws Exception {
+        ClassPathXmlApplicationContext ctx = new ClassPathXmlApplicationContext("GraphDatabaseFactory-fluentfactoryapi-context.xml");
+        try {
+            GraphDatabaseService graphDatabaseService = ctx.getBean("graphDatabaseService", GraphDatabaseService.class);
+            GraphDatabase graphDatabase = ctx.getBean("graphDatabase", GraphDatabase.class);
+
+
+            Assert.assertThat(graphDatabaseService, Is.is(IsNot.not(IsNull.nullValue())));
+            Assert.assertThat(graphDatabaseService, Is.is(IsInstanceOf.instanceOf(GraphDatabaseService.class)));
+
+            Assert.assertThat(graphDatabase, Is.is(IsNot.not(IsNull.nullValue())));
+            Assert.assertThat(graphDatabase, Is.is(IsInstanceOf.instanceOf(DelegatingGraphDatabase.class)));
+
+            // The actual underlying delegated instance should be the one we setup ourselves
+            Assert.assertTrue(graphDatabaseService == ((DelegatingGraphDatabase)graphDatabase).getGraphDatabaseService() );
+
+
+        } finally {
+            ctx.close();
+        }
+
+    }
 
     @Test
     public void shouldCreateLocalDatabaseFromContext() throws Exception {
