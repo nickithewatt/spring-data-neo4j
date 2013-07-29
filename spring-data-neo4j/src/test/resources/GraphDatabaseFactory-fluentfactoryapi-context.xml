@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xmlns:neo4j="http://www.springframework.org/schema/data/neo4j"
+       xsi:schemaLocation="
+         http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+         http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+         http://www.springframework.org/schema/data/neo4j http://www.springframework.org/schema/data/neo4j/spring-neo4j.xsd">
+
+
+    <neo4j:config graphDatabaseService="graphDatabaseService" />
+
+    <util:map id="config">
+        <entry key="enable_remote_shell" value="true"/>
+    </util:map>
+
+    <!-- Create using fluent factory API ... for now we simply make use of the the basic spring
+         factory building functionality, but could change this to look and feel more fluent as well.
+         see https://github.com/neo4j/neo4j/issues/890 -->
+    <bean id="graphDbFactory" class="org.neo4j.graphdb.factory.GraphDatabaseFactory"/>
+    <bean id="graphDbBuilder" factory-bean="graphDbFactory" factory-method="newEmbeddedDatabaseBuilder">
+        <constructor-arg value="target/test-db-fluent"/>
+    </bean>
+    <bean id="graphDbBuilderFinal" factory-bean="graphDbBuilder" factory-method="setConfig">
+        <constructor-arg ref="config"/>
+    </bean>
+    <bean id="graphDatabaseService" factory-bean="graphDbBuilderFinal" factory-method="newGraphDatabase" destroy-method="shutdown" />
+
+</beans>
