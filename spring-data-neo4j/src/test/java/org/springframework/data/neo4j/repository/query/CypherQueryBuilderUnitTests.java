@@ -67,25 +67,6 @@ public class CypherQueryBuilderUnitTests {
     }
 
     @Test
-    public void createsCountQueryForSimplePropertyReference() {
-        Part part = new Part("name", Person.class);
-        query.addRestriction(part);
-        assertThat(query.asCountQuery().toString(), is("START `person`=node:`Person`(`name`={0}) RETURN count(`person`)"));
-    }
-    @Test
-    public void createsCountQueryForLikePropertyIndex() {
-        Part part = new Part("titleLike", Person.class);
-        query.addRestriction(part);
-        assertThat(query.asCountQuery().toString(), is("START `person`=node:`title`({0}) RETURN count(`person`)"));
-    }
-    @Test
-    public void createsCountQueryForLikeProperty() {
-        Part part = new Part("infoLike", Person.class);
-        query.addRestriction(part);
-        assertThat(query.asCountQuery().toString(), is(DEFAULT_START_CLAUSE+" WHERE `person`.`info`! =~ {0} RETURN count(`person`)"));
-    }
-
-    @Test
     public void createsQueryForSimplePropertyReference() {
 
         Part part = new Part("name", Person.class);
