@@ -15,10 +15,12 @@
  */
 package org.springframework.data.neo4j.support.index;
 
+import org.neo4j.graphdb.DynamicLabel;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.schema.IndexDefinition;
 import org.springframework.data.neo4j.annotation.Indexed;
 import org.springframework.data.neo4j.core.GraphDatabase;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
@@ -89,6 +91,20 @@ public class IndexProviderImpl implements IndexProvider {
     @SuppressWarnings("unchecked")
     public <T extends PropertyContainer> Index<T> createIndex(Class<T> propertyContainerType, String indexName, IndexType fullText) {
         return graphDatabase.createIndex(propertyContainerType, indexName, fullText);
+    }
+
+    @Override
+    public void createIndexForLabelProperty(Neo4jPersistentProperty property, final Class<?> instanceType) {
+        final Indexed indexedAnnotation = property.getAnnotation(Indexed.class);
+        if (indexedAnnotation == null) {
+            return;
+        }
+
+        String aliasLabel = Indexed.Name.get(instanceType);
+        // getEntityType() not set at this stage!! Not sure if above is good enough
+        //final Neo4jPersistentEntity<?> declaringType = property.getOwner();
+        //String aliasLabel = (String)declaringType.getEntityType().getAlias();
+        graphDatabase.createIndexForLabelProperty(aliasLabel,property.getNeo4jPropertyName());
     }
 
     @Override

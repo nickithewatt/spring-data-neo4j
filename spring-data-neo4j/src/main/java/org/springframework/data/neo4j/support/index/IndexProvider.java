@@ -15,8 +15,10 @@
  */
 package org.springframework.data.neo4j.support.index;
 
+import org.neo4j.graphdb.DynamicLabel;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.schema.IndexDefinition;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
 
@@ -37,6 +39,9 @@ public interface IndexProvider {
     @SuppressWarnings("unchecked")
     <T extends PropertyContainer> Index<T> createIndex(Class<T> propertyContainerType, String indexName,
             IndexType fullText);
+
+    void createIndexForLabelProperty(Neo4jPersistentProperty property, final Class<?> instanceType);
+
 
     <S extends PropertyContainer> Index<S> getIndex(Neo4jPersistentProperty property, final Class<?> instanceType);
     /**

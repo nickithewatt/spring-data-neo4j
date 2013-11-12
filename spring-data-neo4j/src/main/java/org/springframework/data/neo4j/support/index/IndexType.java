@@ -27,7 +27,8 @@ public enum IndexType
     FULLTEXT { public Map<String,String> getConfig() { return LuceneIndexImplementation.FULLTEXT_CONFIG; } },
     POINT { public Map<String,String> getConfig() { return MapUtil.stringMap(
             IndexManager.PROVIDER, "spatial", "geometry_type" , "point","wkt","wkt") ; } },
-    UNIQUE(){ public Map<String, String> getConfig() { return LuceneIndexImplementation.EXACT_CONFIG; } };
+    UNIQUE(){ public Map<String, String> getConfig() { return LuceneIndexImplementation.EXACT_CONFIG; } },
+    LABEL(){ public Map<String, String> getConfig() { return LuceneIndexImplementation.EXACT_CONFIG; } };
 
     public abstract Map<String, String>getConfig();
 }

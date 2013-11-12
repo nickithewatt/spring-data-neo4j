@@ -15,10 +15,11 @@
  */
 package org.springframework.data.neo4j.support.mapping;
 
-import org.neo4j.graphdb.index.Index;
 import org.springframework.context.ApplicationListener;
 import org.springframework.data.mapping.PropertyHandler;
 import org.springframework.data.mapping.context.MappingContextEvent;
+import org.springframework.data.neo4j.annotation.Indexed;
+import org.springframework.data.neo4j.core.NodeTypeRepresentationStrategy;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
 import org.springframework.data.neo4j.support.index.IndexProvider;
@@ -30,8 +31,12 @@ import org.springframework.data.neo4j.support.index.IndexType;
  */
 public class IndexCreationMappingEventListener implements ApplicationListener<MappingContextEvent<Neo4jPersistentEntity<?>, Neo4jPersistentProperty>> {
     private IndexProvider indexProvider;
-    public IndexCreationMappingEventListener(IndexProvider indexProvider) {
+    private boolean usesLabelBasedTRS;
+
+    public IndexCreationMappingEventListener(IndexProvider indexProvider,
+                                             NodeTypeRepresentationStrategy strategy) {
         this.indexProvider = indexProvider;
+        this.usesLabelBasedTRS = strategy.isLabelBased();
     }
 
     @Override
@@ -42,15 +47,35 @@ public class IndexCreationMappingEventListener implements ApplicationListener<Ma
     }
 
     private void ensureEntityIndexes(Neo4jPersistentEntity<?> entity) {
+        ensureSimpleEntityIndexes(entity);
+
+        if (usesLabelBasedTRS) ensureLabelBasedEntityIndexes(entity);
+    }
+
+    private void ensureSimpleEntityIndexes(Neo4jPersistentEntity<?> entity) {
         final Class entityType = entity.getType();
         indexProvider.getIndex(entity, null, IndexType.SIMPLE);
         entity.doWithProperties(new PropertyHandler<Neo4jPersistentProperty>() {
             @Override
             public void doWithPersistentProperty(Neo4jPersistentProperty property) {
-                if (property.isIndexed()) {
+                if (property.isIndexed() && !property.isLabelIndexed()) {
                     indexProvider.getIndex(property, entityType);
                 }
             }
         });
     }
+
+    private void ensureLabelBasedEntityIndexes(Neo4jPersistentEntity<?> entity) {
+        final Class entityType = entity.getType();
+
+        entity.doWithProperties(new PropertyHandler<Neo4jPersistentProperty>() {
+            @Override
+            public void doWithPersistentProperty(Neo4jPersistentProperty property) {
+                if (property.isIndexed() && property.isLabelIndexed()) {
+                    indexProvider.createIndexForLabelProperty(property, entityType);
+                }
+            }
+        });
+    }
+
 }

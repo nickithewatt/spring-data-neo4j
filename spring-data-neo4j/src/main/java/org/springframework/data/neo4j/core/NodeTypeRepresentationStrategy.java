@@ -20,4 +20,5 @@ import org.neo4j.graphdb.Node;
 
 public interface NodeTypeRepresentationStrategy extends TypeRepresentationStrategy<Node> {
 
+    boolean isLabelBased();
 }

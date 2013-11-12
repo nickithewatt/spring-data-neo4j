@@ -18,27 +18,21 @@ package org.springframework.data.neo4j.aspects.support.typerepresentation;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.helpers.collection.ClosableIterable;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.neo4j.annotation.Indexed;
 import org.springframework.data.neo4j.annotation.NodeEntity;
 import org.springframework.data.neo4j.aspects.support.EntityTestBase;
 import org.springframework.data.neo4j.core.NodeTypeRepresentationStrategy;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
+import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.neo4j.support.mapping.Neo4jMappingContext;
 import org.springframework.data.neo4j.support.mapping.StoredEntityType;
-import org.springframework.data.neo4j.support.typerepresentation.LabelBasedNodeTypeRepresentationStrategy;
-import org.springframework.test.context.CleanContextCacheTestExecutionListener;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestExecutionListeners;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.test.context.transaction.BeforeTransaction;
-import org.springframework.test.context.transaction.TransactionalTestExecutionListener;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
@@ -53,6 +47,7 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
 
     @Autowired
     protected Neo4jTemplate neo4jTemplate;
+
     @Autowired
     protected Neo4jMappingContext ctx;
 
@@ -158,14 +153,20 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
             thing = neo4jTemplate.setPersistentState(new Thing(),n1);
 			nodeTypeRepresentationStrategy.writeTypeTo(n1, neo4jTemplate.getEntityType(Thing.class));
             thing.setName("thing");
+            thing.setLabelIndexedThingName("thing-theLabelIndexedThingName");
             Node n2 = graphDatabaseService.createNode();
             subThing = neo4jTemplate.setPersistentState(new SubThing(),n2);
 			nodeTypeRepresentationStrategy.writeTypeTo(n2, neo4jTemplate.getEntityType(SubThing.class));
             subThing.setName("subThing");
+            subThing.setLabelIndexedThingName("subThing-theLabelIndexedThingName");
+            subThing.setLabelIndexedSubThingName("subThing-theLabelIndexedSubThingName");
             Node n3 = graphDatabaseService.createNode();
             subSubThing = neo4jTemplate.setPersistentState(new SubSubThing(),n3);
             nodeTypeRepresentationStrategy.writeTypeTo(n3, neo4jTemplate.getEntityType(SubSubThing.class));
             subThing.setName("subSubThing");
+            subThing.setLabelIndexedThingName("subSubThing-theLabelIndexedThingName");
+            subThing.setLabelIndexedSubThingName("subSubThing-theLabelIndexedSubThingName");
+            subThing.setLabelIndexedSubThingName("subSubThing-theLabelIndexedSubSubThingName");
 			tx.success();
 			return thing;
 		} finally {
@@ -186,6 +187,9 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
 	public static class Thing {
 		String name;
 
+        @Indexed(indexType = IndexType.LABEL)
+        String labelIndexedThingName;
+
         public void setName(String name) {
             this.name = name;
         }
@@ -193,11 +197,41 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
         public String getName() {
             return name;
         }
+
+        public String getLabelIndexedThingName() {
+            return labelIndexedThingName;
+        }
+
+        public void setLabelIndexedThingName(String labelIndexedThingName) {
+            this.labelIndexedThingName = labelIndexedThingName;
+        }
     }
 
 	public static class SubThing extends Thing {
+
+        @Indexed(indexType = IndexType.LABEL)
+        String labelIndexedSubThingName;
+
+        public String getLabelIndexedSubThingName() {
+            return labelIndexedSubThingName;
+        }
+
+        public void setLabelIndexedSubThingName(String labelIndexedSubThingName) {
+            this.labelIndexedSubThingName = labelIndexedSubThingName;
+        }
     }
 
     public static class SubSubThing extends SubThing {
+
+        @Indexed(indexType = IndexType.LABEL)
+        String labelIndexedSubSubThingName;
+
+        public String getLabelIndexedSubSubThingName() {
+            return labelIndexedSubSubThingName;
+        }
+
+        public void setLabelIndexedSubSubThingName(String labelIndexedSubSubThingName) {
+            this.labelIndexedSubSubThingName = labelIndexedSubSubThingName;
+        }
     }
 }

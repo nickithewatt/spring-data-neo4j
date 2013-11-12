@@ -74,6 +74,13 @@ public class IndexingPropertyFieldAccessorListenerFactory<S extends PropertyCont
 
 	    @Override
         public void valueChanged(Object entity, Object oldVal, Object newVal) {
+
+            if (property.isLabelIndexed()) {
+                // Label based indexes take care of themselves,
+                // nothing more to do - i think
+                return;
+            }
+
             @SuppressWarnings("unchecked") Index<T> index = template.getIndex(property, entity.getClass());
             if (newVal instanceof Number && property.getIndexInfo().isNumeric()) newVal = ValueContext.numeric((Number) newVal);
 

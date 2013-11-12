@@ -29,4 +29,9 @@ public class IndexBasedNodeTypeRepresentationStrategy extends AbstractIndexBased
     public IndexBasedNodeTypeRepresentationStrategy(GraphDatabase graphDb, IndexProvider indexProvider) {
         super(graphDb, indexProvider, INDEX_NAME, Node.class);
     }
+
+    @Override
+    public boolean isLabelBased() {
+        return false;
+    }
 }

@@ -7,4 +7,18 @@
         <constructor-arg index="0" ref="graphDatabase"/>
         <constructor-arg index="1" value="Labeled"/>
     </bean>
+
+    <bean id="mappingContext" class="org.springframework.data.neo4j.support.mapping.Neo4jMappingContext">
+
+        <!-- Should not need to do this - look into it. Txs in
+             muddle with schema updates and data updates as well ... -->
+        <property name="initialEntitySet" >
+            <set>
+                <value>org.springframework.data.neo4j.aspects.support.typerepresentation.AbstractNodeTypeRepresentationStrategyTestBase.Thing</value>
+                <value>org.springframework.data.neo4j.aspects.support.typerepresentation.AbstractNodeTypeRepresentationStrategyTestBase.SubThing</value>
+                <value>org.springframework.data.neo4j.aspects.support.typerepresentation.AbstractNodeTypeRepresentationStrategyTestBase.SubSubThing</value>
+            </set>
+        </property>
+    </bean>
+
 </beans>

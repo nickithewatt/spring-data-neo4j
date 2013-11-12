@@ -21,6 +21,8 @@ import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.graphdb.index.UniqueFactory;
+import org.neo4j.graphdb.schema.IndexCreator;
+import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.traversal.TraversalDescription;
 import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.GraphDatabaseAPI;
@@ -99,6 +101,18 @@ public class DelegatingGraphDatabase implements GraphDatabase {
     @Override
     public Node createNode(Map<String, Object> props) {
         return setProperties(delegate.createNode(), props);
+    }
+
+    public IndexDefinition createIndexForLabelProperty(String label, String propertyName) {
+
+        try (Transaction tx = delegate.beginTx()) {
+            IndexDefinition idef = delegate.schema()
+                    .indexFor(DynamicLabel.label(label))
+                    .on(propertyName)
+                    .create();
+            tx.success();
+            return idef;
+        }
     }
 
     private <T extends PropertyContainer> T setProperties(T primitive, Map<String, Object> properties) {

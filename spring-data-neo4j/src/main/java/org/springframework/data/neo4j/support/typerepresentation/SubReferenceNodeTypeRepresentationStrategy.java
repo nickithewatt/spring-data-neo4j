@@ -238,4 +238,10 @@ public class SubReferenceNodeTypeRepresentationStrategy implements NodeTypeRepre
 
 	}
 
+
+    @Override
+    public boolean isLabelBased() {
+        return false;
+    }
+
 }

@@ -30,6 +30,7 @@ import org.springframework.data.convert.DefaultTypeMapper;
 import org.springframework.data.convert.TypeMapper;
 import org.springframework.data.mapping.context.MappingContextIsNewStrategyFactory;
 import org.springframework.data.neo4j.core.GraphDatabase;
+import org.springframework.data.neo4j.core.NodeTypeRepresentationStrategy;
 import org.springframework.data.neo4j.core.TypeRepresentationStrategy;
 import org.springframework.data.neo4j.fieldaccess.FieldAccessorFactoryFactory;
 import org.springframework.data.neo4j.fieldaccess.Neo4jConversionServiceFactoryBean;
@@ -245,7 +246,7 @@ public abstract class Neo4jConfiguration {
 
     @Bean
     public IndexCreationMappingEventListener indexCreationMappingEventListener() throws Exception {
-        return new IndexCreationMappingEventListener(indexProvider());
+        return new IndexCreationMappingEventListener(indexProvider(),(NodeTypeRepresentationStrategy)nodeTypeRepresentationStrategy());
     }
 
     @Bean

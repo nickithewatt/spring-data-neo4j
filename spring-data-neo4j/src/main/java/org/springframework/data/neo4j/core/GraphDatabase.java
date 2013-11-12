@@ -18,6 +18,7 @@ package org.springframework.data.neo4j.core;
 
 import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.traversal.TraversalDescription;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.data.neo4j.annotation.QueryType;
@@ -97,6 +98,12 @@ public interface GraphDatabase {
      */
     <T extends PropertyContainer> Index<T> createIndex(Class<T> type, String indexName, IndexType indexType);
 
+    /**
+     * creates a index for the specified propertyName against the given label.
+     * @param label label against which the indexed property should apply
+     * @param propertyName name of the property which needs indexing
+     */
+    public IndexDefinition createIndexForLabelProperty(String label, String propertyName);
 
     /**
      * @return a TraversalDescription as starting point for defining a traversal

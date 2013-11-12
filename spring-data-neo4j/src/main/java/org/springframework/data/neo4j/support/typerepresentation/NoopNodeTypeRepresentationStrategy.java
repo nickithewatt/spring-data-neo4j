@@ -44,4 +44,9 @@ public class NoopNodeTypeRepresentationStrategy implements NodeTypeRepresentatio
     public Class<?> readAliasFrom(Node state) {
         return null;
     }
+
+    @Override
+    public boolean isLabelBased() {
+        return false;
+    }
 }

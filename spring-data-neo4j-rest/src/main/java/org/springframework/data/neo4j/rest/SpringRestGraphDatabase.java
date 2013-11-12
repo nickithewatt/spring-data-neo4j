@@ -17,6 +17,7 @@ package org.springframework.data.neo4j.rest;
 
 import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.rest.graphdb.RestAPI;
 import org.neo4j.rest.graphdb.RestAPIFacade;
 import org.neo4j.rest.graphdb.entity.RestNode;
@@ -60,6 +61,14 @@ public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDat
     @Override
     public Node createNode(Map<String, Object> props) {
         return super.getRestAPI().createNode(props);
+    }
+
+    @Override
+    public IndexDefinition createIndexForLabelProperty(String label, String propertyName) {
+        return schema()
+                .indexFor(DynamicLabel.label(label))
+                .on(propertyName)
+                .create();
     }
 
     @Override

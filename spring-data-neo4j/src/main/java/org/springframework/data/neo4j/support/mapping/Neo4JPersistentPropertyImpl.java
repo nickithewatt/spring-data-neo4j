@@ -53,6 +53,7 @@ import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
 import org.springframework.data.neo4j.mapping.RelationshipInfo;
 import org.springframework.data.neo4j.support.DoReturn;
+import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.util.TypeInformation;
 
 /**
@@ -190,6 +191,11 @@ class Neo4jPersistentPropertyImpl extends AnnotationBasedPersistentProperty<Neo4
     @Override
     public boolean isIndexed() {
         return indexInfo != null;
+    }
+
+    @Override
+    public boolean isLabelIndexed() {
+        return isIndexed() && getIndexInfo().getIndexType() == IndexType.LABEL;
     }
 
     @Override

@@ -129,4 +129,10 @@ public class LabelBasedNodeTypeRepresentationStrategy implements NodeTypeReprese
        return graphDatabaseService.getReferenceNode().hasLabel(SDN_LABEL_STRATEGY);
 
     }
+
+
+    @Override
+    public boolean isLabelBased() {
+        return true;
+    }
 }
