@@ -1,21 +1,22 @@
 package org.springframework.data.neo4j.gc;
 
 import org.springframework.data.neo4j.gc.model.Conference;
-import org.springframework.data.neo4j.gc.model.DeliveredTalk;
+import org.springframework.data.neo4j.gc.model.Person;
 import org.springframework.data.neo4j.gc.model.Speaker;
 import org.springframework.data.neo4j.gc.model.Talk;
-import org.springframework.data.neo4j.gc.model.Person;
-import org.springframework.data.neo4j.gc.repo.*;
+import org.springframework.data.neo4j.gc.repo.ConferenceRepository;
+import org.springframework.data.neo4j.gc.repo.PersonRepository;
+import org.springframework.data.neo4j.gc.repo.SpeakerRepository;
+import org.springframework.data.neo4j.gc.repo.TalkRepository;
 
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashSet;
-import java.util.Set;
 
 /**
  *
  */
-public class TalkDeliveryUniverse {
+public class TalkAndConferenceUniverse {
 
     public Date gcLondonDate;
     public Date gcNewYorkDate;
@@ -31,40 +32,34 @@ public class TalkDeliveryUniverse {
     public Person attendeeJoeSmo;
     public Person attendeeSusanSnow;
 
-    public Talk sdnTalk;
-    public DeliveredTalk sdnTalkAtLondon;
 
-    public Talk neo4jTheoryPracTalk;
-    public DeliveredTalk neo4jTheoryPracTalkAtLondon;
+    public Talk sdnTalkAtLondon;
+    public Talk neo4jTheoryPracTalkAtLondon;
+    public Talk busyDevTalkAtLondon;
+    public Talk busyDevTalkAtNewYork;
 
-    public Talk busyDevTalk;
-    public DeliveredTalk busyDevTalkAtLondon;
-    public DeliveredTalk busyDevTalkAtNewYork;
-
-    TalkRepository talkRepo;
     ConferenceRepository confRepo;
     SpeakerRepository speakerRepo;
-    DeliveredTalkRepository deliveredTalkRepo;
+    TalkRepository talkRepo;
     PersonRepository personRepository;
 
-    public TalkDeliveryUniverse(TalkRepository talkRepo,
-                                ConferenceRepository confRepo,
-                                SpeakerRepository speakerRepo,
-                                DeliveredTalkRepository deliveredTalkRepo,
-                                PersonRepository personRepository) {
-        this.talkRepo = talkRepo;
+    public TalkAndConferenceUniverse(ConferenceRepository confRepo,
+                                     SpeakerRepository speakerRepo,
+                                     TalkRepository talkRepo,
+                                     PersonRepository personRepository) {
+
         this.confRepo = confRepo;
         this.speakerRepo = speakerRepo;
-        this.deliveredTalkRepo = deliveredTalkRepo;
+        this.talkRepo = talkRepo;
         this.personRepository = personRepository;
 
     }
 
     public void createData() {
         createConferences();
-        createTalks();
         createSpeakersAndAttendees();
-        createDeliveredTalks();
+        createTalks();
+
 
         addAttendeesToConferencesAndTalks();
 
@@ -73,7 +68,6 @@ public class TalkDeliveryUniverse {
 
     private void reloadAllDataFromGraph() {
         gcLondon = confRepo.findOne(gcLondon.getId());
-        sdnTalk = talkRepo.findOne(sdnTalk.getId());
 
         nicki = speakerRepo.findOne(nicki.getId());
         michael = speakerRepo.findOne(michael.getId());
@@ -82,16 +76,11 @@ public class TalkDeliveryUniverse {
 
         attendeeJoeSmo = personRepository.findOne(attendeeJoeSmo.getId());
         attendeeSusanSnow = personRepository.findOne(attendeeSusanSnow.getId());
+        sdnTalkAtLondon = talkRepo.findOne(sdnTalkAtLondon.getId());
 
-        sdnTalk = talkRepo.findOne(sdnTalk.getId());
-        sdnTalkAtLondon = deliveredTalkRepo.findOne(sdnTalkAtLondon.getId());
-
-        neo4jTheoryPracTalk = talkRepo.findOne(neo4jTheoryPracTalk.getId());
-        neo4jTheoryPracTalkAtLondon = deliveredTalkRepo.findOne(neo4jTheoryPracTalkAtLondon.getId());
-
-        busyDevTalk = talkRepo.findOne(busyDevTalk.getId());
-        busyDevTalkAtLondon = deliveredTalkRepo.findOne(busyDevTalkAtLondon.getId());
-        busyDevTalkAtNewYork = deliveredTalkRepo.findOne(busyDevTalkAtNewYork.getId());
+        neo4jTheoryPracTalkAtLondon = talkRepo.findOne(neo4jTheoryPracTalkAtLondon.getId());
+        busyDevTalkAtLondon = talkRepo.findOne(busyDevTalkAtLondon.getId());
+        busyDevTalkAtNewYork = talkRepo.findOne(busyDevTalkAtNewYork.getId());
 
     }
 
@@ -108,31 +97,31 @@ public class TalkDeliveryUniverse {
         gcLondon = confRepo.findOne(gcLondon.getId());
         gcNewYork = confRepo.findOne(gcNewYork.getId());
 
-        sdnTalkAtLondon.addAttendee(attendeeSusanSnow);
-        sdnTalkAtLondon.addAttendee(attendeeJoeSmo);
-        sdnTalkAtLondon = deliveredTalkRepo.save(sdnTalkAtLondon);
+        sdnTalkAtLondon.addAttendee(attendeeSusanSnow, 4);
+        sdnTalkAtLondon.addAttendee(attendeeJoeSmo, 5);
+        sdnTalkAtLondon = talkRepo.save(sdnTalkAtLondon);
 
     }
 
-    private void createDeliveredTalks() {
-        sdnTalkAtLondon = createNewDeliveredTalk(sdnTalk, gcLondon, nicki, michael);
-        sdnTalkAtLondon = deliveredTalkRepo.save(sdnTalkAtLondon);
-        sdnTalk = talkRepo.findOne(sdnTalk.getId());
+    private void createTalks() {
+        sdnTalkAtLondon = createNewTalk("OGM with SDN 3.0", gcLondon, nicki, michael);
+        sdnTalkAtLondon = talkRepo.save(sdnTalkAtLondon);
+        sdnTalkAtLondon = talkRepo.findOne(sdnTalkAtLondon.getId());
         gcLondon = confRepo.findOne(gcLondon.getId());
 
-        neo4jTheoryPracTalkAtLondon = createNewDeliveredTalk(neo4jTheoryPracTalk, gcLondon, tareq);
-        neo4jTheoryPracTalkAtLondon = deliveredTalkRepo.save(neo4jTheoryPracTalkAtLondon);
-        neo4jTheoryPracTalk = talkRepo.findOne(neo4jTheoryPracTalk.getId());
+        neo4jTheoryPracTalkAtLondon = createNewTalk("Neo4j Theory and Practice", gcLondon, tareq);
+        neo4jTheoryPracTalkAtLondon = talkRepo.save(neo4jTheoryPracTalkAtLondon);
+        neo4jTheoryPracTalkAtLondon = talkRepo.findOne(neo4jTheoryPracTalkAtLondon.getId());
         gcLondon = confRepo.findOne(gcLondon.getId());
 
-        busyDevTalkAtNewYork = createNewDeliveredTalk(busyDevTalk, gcNewYork, jim);
-        busyDevTalkAtNewYork = deliveredTalkRepo.save(busyDevTalkAtNewYork);
-        busyDevTalk = talkRepo.findOne(busyDevTalk.getId());
+        busyDevTalkAtNewYork = createNewTalk("A Little Graph Theory for the Busy Developer", gcNewYork, jim);
+        busyDevTalkAtNewYork = talkRepo.save(busyDevTalkAtNewYork);
+        busyDevTalkAtNewYork = talkRepo.findOne(busyDevTalkAtNewYork.getId());
         gcNewYork = confRepo.findOne(gcNewYork.getId());
 
-        busyDevTalkAtLondon = createNewDeliveredTalk(busyDevTalk, gcLondon, jim);
-        busyDevTalkAtLondon = deliveredTalkRepo.save(busyDevTalkAtLondon);
-        busyDevTalk = talkRepo.findOne(busyDevTalk.getId());
+        busyDevTalkAtLondon = createNewTalk("A Little Graph Theory for the Busy Developer", gcLondon, jim);
+        busyDevTalkAtLondon = talkRepo.save(busyDevTalkAtLondon);
+        busyDevTalkAtLondon = talkRepo.findOne(busyDevTalkAtLondon.getId());
         gcLondon = confRepo.findOne(gcLondon.getId());
     }
 
@@ -160,17 +149,6 @@ public class TalkDeliveryUniverse {
         return p;
     }
 
-    private void createTalks() {
-        sdnTalk  = createNewTalk("OGM with SDN 3.0");
-        talkRepo.save(sdnTalk);
-
-        neo4jTheoryPracTalk = createNewTalk("Neo4j Theory and Practice");
-        talkRepo.save(neo4jTheoryPracTalk);
-
-        busyDevTalk = createNewTalk("A Little Graph Theory for the Busy Developer");
-        talkRepo.save(busyDevTalk);
-
-    }
 
     private void createConferences() {
         gcLondonDate = new GregorianCalendar(2013,10,19).getTime();
@@ -182,7 +160,7 @@ public class TalkDeliveryUniverse {
         gcNewYork = confRepo.save(gcNewYork);
     }
 
-    private DeliveredTalk createNewDeliveredTalk(Talk talk, Conference conference, Speaker... speakers) {
+    private Talk createNewTalk(String name, Conference conference, Speaker... speakers) {
         HashSet<Speaker> speakerSet = new HashSet<Speaker>();
         for (Speaker s: speakers) {
             speakerSet.add(s);
@@ -190,17 +168,16 @@ public class TalkDeliveryUniverse {
         }
         confRepo.save(conference);
 
-        DeliveredTalk dt = new DeliveredTalk();
-        dt.setName(talk.getName() + "@" + conference.getName());
-        dt.setTalk(talk);
+        Talk dt = new Talk();
+        dt.setName(name);
         dt.setConference(conference);
-        deliveredTalkRepo.save(dt);
+        talkRepo.save(dt);
 
 
         for (Speaker s : speakers) {
             dt.addSpeaker(s);
         }
-        deliveredTalkRepo.save(dt);
+        talkRepo.save(dt);
 
         return dt;
 
@@ -220,9 +197,4 @@ public class TalkDeliveryUniverse {
         return conference;
     }
 
-    private Talk createNewTalk(String name) {
-        Talk talk = new Talk();
-        talk.setName(name);
-        return talk;
-    }
 }

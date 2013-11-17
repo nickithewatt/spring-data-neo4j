@@ -6,17 +6,17 @@ import org.springframework.data.neo4j.annotation.*;
 import java.util.HashSet;
 
 
-    @NodeEntity
-    @TypeAlias(value = "Person")
-    public class Person {
+@NodeEntity
+@TypeAlias(value = "Person")
+public class Person {
 
-        @GraphId protected Long graphId;
-        @Indexed(unique = true) String name;
+    @GraphId protected Long graphId;
+    @Indexed(unique = true) String name;
 
-        @RelatedTo(type="LISTENED_TO")
-        Iterable<DeliveredTalk> talksAttended;
+    @RelatedToVia(type="LISTENED_TO")
+    Iterable<ListenedToRelationship> talksAttended;
 
-    //  . . .
+//  . . .
 
 
 
@@ -56,7 +56,7 @@ import java.util.HashSet;
             this.name = name;
         }
 
-        public Iterable<DeliveredTalk> getTalksAttended() {
+        public Iterable<ListenedToRelationship> getTalksAttended() {
             if (talksAttended == null) {
                 talksAttended = new HashSet<>();
             }

@@ -16,16 +16,20 @@
 
 package org.springframework.data.neo4j.gc;
 
-import org.apache.commons.io.FileUtils;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.neo4j.gc.model.*;
-import org.springframework.data.neo4j.gc.repo.*;
+import org.springframework.data.neo4j.gc.model.Conference;
+import org.springframework.data.neo4j.gc.model.Person;
+import org.springframework.data.neo4j.gc.model.Speaker;
+import org.springframework.data.neo4j.gc.model.Talk;
+import org.springframework.data.neo4j.gc.repo.ConferenceRepository;
+import org.springframework.data.neo4j.gc.repo.PersonRepository;
+import org.springframework.data.neo4j.gc.repo.SpeakerRepository;
+import org.springframework.data.neo4j.gc.repo.TalkRepository;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
 import org.springframework.data.neo4j.support.node.Neo4jHelper;
 import org.springframework.test.context.ContextConfiguration;
@@ -35,9 +39,8 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.hasItems;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.neo4j.helpers.collection.IteratorUtil.asCollection;
@@ -58,15 +61,13 @@ public class GCDemoTests {
     @Autowired
     private TalkRepository talkRepository;
     @Autowired
-    private DeliveredTalkRepository deliveredTalkRepository;
-    @Autowired
     private SpeakerRepository speakerRepository;
     @Autowired
     private PersonRepository personRepository;
     @Autowired
     private ConferenceRepository confRepository;
 
-    private TalkDeliveryUniverse universe;
+    private TalkAndConferenceUniverse universe;
 
     /*
     @BeforeClass
@@ -75,6 +76,7 @@ public class GCDemoTests {
     }
     */
 
+
     @BeforeTransaction
     public void cleanDb() {
         Neo4jHelper.cleanDb(neo4jTemplate);
@@ -82,9 +84,10 @@ public class GCDemoTests {
 
     @Before
     public void setUp() throws Exception {
-        universe = new TalkDeliveryUniverse(
-                talkRepository,confRepository,
-                speakerRepository,deliveredTalkRepository,
+        universe = new TalkAndConferenceUniverse(
+                confRepository,
+                speakerRepository,
+                talkRepository,
                 personRepository);
         universe.createData();
     }
@@ -111,20 +114,14 @@ public class GCDemoTests {
     }
 
     private void assertBasicTalkRelatedDetails() {
-        Iterable<Talk> allTalks = talkRepository.findAll();
-        assertThat(asCollection(allTalks), hasItems(universe.sdnTalk, universe.busyDevTalk, universe.neo4jTheoryPracTalk));
 
-        Iterable<DeliveredTalk> allDeliveredTalks = deliveredTalkRepository.findAll();
-        assertThat(asCollection(allDeliveredTalks), hasItems(
+        Iterable<Talk> allTalks = talkRepository.findAll();
+        assertThat(asCollection(allTalks), hasItems(
                 universe.sdnTalkAtLondon,
                 universe.busyDevTalkAtLondon,
                 universe.busyDevTalkAtNewYork,
                 universe.neo4jTheoryPracTalkAtLondon));
 
-        assertThat( universe.sdnTalk.getDeliveredTalks(), hasItems(
-                universe.sdnTalkAtLondon));
-
-        assertThat( universe.sdnTalkAtLondon.getTalk(), is( universe.sdnTalk ) );
 
         assertThat( asCollection(universe.nicki.getTalksDelivered()), hasItems(
                 universe.sdnTalkAtLondon
@@ -166,11 +163,17 @@ public class GCDemoTests {
         Iterable<Conference> confsAttended2 = universe.attendeeSusanSnow.findAllConferencesAttended;
         assertThat(asCollection(confsAttended2), hasItems(universe.gcLondon, universe.gcNewYork));
 
-        Iterable<Conference> conferences = confRepository.findAllByDeliveredTalksSpeakersName(universe.jim.getName());
+        Iterable<Conference> conferences = confRepository.findAllByTalksSpeakersName(universe.jim.getName());
         assertThat(asCollection(conferences), hasItems(universe.gcNewYork, universe.gcLondon));
 
-        Iterable<Conference> conferences2 = confRepository.findAllByDeliveredTalksSpeakersName(universe.nicki.getName());
+        Iterable<Conference> conferences2 = confRepository.findAllByTalksSpeakersName(universe.nicki.getName());
         assertThat(asCollection(conferences2), hasItems( universe.gcLondon));
+
+        Iterable<Talk> talks1 = talkRepository.findTalksBySpeakersName(universe.nicki.getName());
+        assertThat(asCollection(talks1), hasItems( universe.sdnTalkAtLondon));
+
+        Iterable<Talk> talks2 = talkRepository.findTalksBySpeakersName(universe.jim.getName());
+        assertThat(asCollection(talks2), hasItems( universe.busyDevTalkAtLondon, universe.busyDevTalkAtNewYork));
 
     }
 

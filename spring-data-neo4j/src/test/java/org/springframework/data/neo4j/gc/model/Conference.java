@@ -13,23 +13,23 @@ import java.util.Set;
 import static org.neo4j.graphdb.Direction.INCOMING;
 
 
-    @NodeEntity
-    @TypeAlias(value = "Conference")
-    public class Conference  {
+@NodeEntity
+@TypeAlias(value = "Conference")
+public class Conference  {
 
-        @GraphId
-        Long graphId;
+    @GraphId
+    Long graphId;
 
-        @Indexed(unique = true)
-        String name;
-        Date date;
+    @Indexed
+    String name;
+    Date date;
 
-        @RelatedTo(type="ATTENDEE")
-        Set<Person> attendees;
-        @RelatedTo(type="DELIVERED_AT", direction = INCOMING)
-        Set<DeliveredTalk> deliveredTalks;
+    @RelatedTo(type="ATTENDEE")
+    Set<Person> attendees;
+    @RelatedTo(type="TALK")
+    Set<Talk> talks;
 
-    // . . .
+// . . .
 
     public Long getId() {
         return graphId;
@@ -50,11 +50,11 @@ import static org.neo4j.graphdb.Direction.INCOMING;
         return attendees;
     }
 
-    public Set<DeliveredTalk> getDeliveredTalks() {
-        if (deliveredTalks == null) {
-            deliveredTalks = new HashSet<>();
+    public Set<Talk> getTalks() {
+        if (talks == null) {
+            talks = new HashSet<>();
         }
-        return deliveredTalks;
+        return talks;
     }
 
     public void registerAttendee(Person person) {

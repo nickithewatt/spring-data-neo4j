@@ -6,17 +6,17 @@ import org.springframework.data.neo4j.annotation.RelatedTo;
 
 import static org.neo4j.graphdb.Direction.INCOMING;
 
-    @TypeAlias(value = "Speaker")
-    public class Speaker extends Person {
+@TypeAlias(value = "Speaker")
+public class Speaker extends Person {
 
-        String bio;
+    String bio;
 
-        @RelatedTo(type="SPEAKER", direction = INCOMING)
-        Iterable<DeliveredTalk> talksDelivered;
+    @RelatedTo(type="SPEAKER", direction = INCOMING)
+    Iterable<Talk> talksDelivered;
 
-    // . . .
+// . . .
 
-    public Iterable<DeliveredTalk> getTalksDelivered() {
+    public Iterable<Talk> getTalksDelivered() {
         return talksDelivered;
     }
 

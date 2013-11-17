@@ -15,22 +15,8 @@
  */
 package org.springframework.data.neo4j.repository;
 
-import org.junit.Before;
 import org.junit.Ignore;
-import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import static org.hamcrest.CoreMatchers.is;
-import static org.neo4j.cypherdsl.CypherQuery.*;
-import static org.neo4j.cypherdsl.querydsl.CypherQueryDSL.*;
-import org.neo4j.cypherdsl.grammar.Execute;
-import org.neo4j.cypherdsl.querydsl.CypherQueryDSL;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.neo4j.model.Person;
-import org.springframework.data.neo4j.model.QPerson;
-import org.springframework.data.neo4j.template.Neo4jOperations;
 import org.springframework.test.context.CleanContextCacheTestExecutionListener;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestExecutionListeners;
@@ -38,14 +24,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.test.context.transaction.TransactionalTestExecutionListener;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.Map;
-
-import static java.util.Arrays.asList;
-import static org.junit.Assert.assertThat;
-import static org.hamcrest.Matchers.*;
-import static org.neo4j.helpers.collection.MapUtil.map;
 
 /**
  * @author mh
@@ -58,6 +36,7 @@ import static org.neo4j.helpers.collection.MapUtil.map;
 @Ignore
 public class CypherDslRepositoryTests {
 
+    /*
     @Autowired PersonRepository personRepository;
     @Autowired Neo4jOperations template;
     private TestTeam team;
@@ -98,4 +77,5 @@ public class CypherDslRepositoryTests {
         final List<Person> michaelOnly = personRepository.query(query2, peopleParams).as(List.class);
         assertThat(michaelOnly, hasItems(team.michael));
     }
+    */
 }
