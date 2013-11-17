@@ -156,12 +156,18 @@ public class GCDemoTests {
 
     @Test
     @Transactional
-    public void testMoreStuff() {
+    public void testEntityQueryMethods() {
         Iterable<Conference> confsAttended = universe.attendeeJoeSmo.findAllConferencesAttended;
         assertThat(asCollection(confsAttended), hasItems(universe.gcLondon));
 
         Iterable<Conference> confsAttended2 = universe.attendeeSusanSnow.findAllConferencesAttended;
         assertThat(asCollection(confsAttended2), hasItems(universe.gcLondon, universe.gcNewYork));
+
+    }
+
+    @Test
+    @Transactional
+    public void testDerivedRepositoryMethods() {
 
         Iterable<Conference> conferences = confRepository.findAllByTalksSpeakersName(universe.jim.getName());
         assertThat(asCollection(conferences), hasItems(universe.gcNewYork, universe.gcLondon));
@@ -173,6 +179,17 @@ public class GCDemoTests {
         assertThat(asCollection(talks1), hasItems( universe.sdnTalkAtLondon));
 
         Iterable<Talk> talks2 = talkRepository.findTalksBySpeakersName(universe.jim.getName());
+        assertThat(asCollection(talks2), hasItems( universe.busyDevTalkAtLondon, universe.busyDevTalkAtNewYork));
+
+    }
+
+    @Test
+    @Transactional
+    public void testRepositoryQueryAnnotatedMethods() {
+        Iterable<Talk> talks1 = talkRepository.findTalksBySpeakersNameQuery(universe.nicki.getName());
+        assertThat(asCollection(talks1), hasItems( universe.sdnTalkAtLondon));
+
+        Iterable<Talk> talks2 = talkRepository.findTalksBySpeakersNameQuery(universe.jim.getName());
         assertThat(asCollection(talks2), hasItems( universe.busyDevTalkAtLondon, universe.busyDevTalkAtNewYork));
 
     }

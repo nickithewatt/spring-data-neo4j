@@ -18,6 +18,9 @@ public class ListenedToRelationship {
     @EndNode
     Talk talk;
 
+// . . .
+
+
     public ListenedToRelationship() { }
 
     public ListenedToRelationship(Person attendee, Talk talk, Integer rating) {

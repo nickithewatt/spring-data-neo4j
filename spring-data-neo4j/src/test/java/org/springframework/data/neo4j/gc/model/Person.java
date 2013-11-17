@@ -19,8 +19,6 @@ public class Person {
 //  . . .
 
 
-
-
         /*
         //Without Alias
         //@Query("start person=node({self}) match (person)<-[:ATTENDEE]-(conf) where conf:`org.springframework.data.neo4j.gc.model.Conference` return conf")
