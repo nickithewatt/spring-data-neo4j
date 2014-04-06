@@ -17,23 +17,21 @@
 package org.springframework.data.neo4j.support.mapping;
 
 import java.lang.annotation.Annotation;
-import java.util.IdentityHashMap;
-import java.util.Map;
+import java.util.*;
 
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
 import org.springframework.data.mapping.Association;
+import org.springframework.data.mapping.PersistentProperty;
 import org.springframework.data.mapping.PropertyHandler;
+import org.springframework.data.mapping.SimplePropertyHandler;
 import org.springframework.data.mapping.model.BasicPersistentEntity;
 import org.springframework.data.mapping.model.MappingException;
 import org.springframework.data.neo4j.annotation.NodeEntity;
 import org.springframework.data.neo4j.annotation.RelationshipEntity;
-import org.springframework.data.neo4j.mapping.ManagedEntity;
-import org.springframework.data.neo4j.mapping.MappingPolicy;
-import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
-import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
-import org.springframework.data.neo4j.mapping.RelationshipProperties;
+import org.springframework.data.neo4j.mapping.*;
+import org.springframework.data.neo4j.support.typerepresentation.LabelBasedNodeTypeRepresentationStrategy;
 import org.springframework.data.util.TypeInformation;
 
 /**
@@ -51,23 +49,29 @@ public class Neo4jPersistentEntityImpl<T> extends BasicPersistentEntity<T, Neo4j
     private StoredEntityType storedType;
     private Neo4jPersistentProperty uniqueProperty;
     private final boolean shouldUseShortNames;
+    private final EntityAlias entityAlias;
+    private Set<String> labels;
 
     /**
      * Creates a new {@link Neo4jPersistentEntityImpl} instance.
-     * 
+     *
      * @param information must not be {@literal null}.
+     * @param entityAlias
      */
-    public Neo4jPersistentEntityImpl(TypeInformation<T> information) {
+    public Neo4jPersistentEntityImpl(TypeInformation<T> information, EntityAlias entityAlias) {
         super(information);
+        this.entityAlias = entityAlias;
         for (Annotation annotation : information.getType().getAnnotations()) {
             annotations.put(annotation.annotationType(),annotation);
         }
         managed = ManagedEntity.class.isAssignableFrom(information.getType());
         shouldUseShortNames = shouldUseShortNames();
+        updateStoredType(null);
     }
 
-    void updateStoredType(StoredEntityType storedType) {
-        this.storedType = storedType;
+    void updateStoredType(Collection<Neo4jPersistentEntity<?>> superTypeEntities) {
+        this.storedType = new StoredEntityType(this,superTypeEntities,entityAlias);
+        this.labels = computeLabels();
     }
 
     @Override
@@ -75,10 +79,10 @@ public class Neo4jPersistentEntityImpl<T> extends BasicPersistentEntity<T, Neo4j
         super.verify();
         doWithProperties(new PropertyHandler<Neo4jPersistentProperty>() {
             Neo4jPersistentProperty unique = null;
-            public void doWithPersistentProperty(Neo4jPersistentProperty persistentProperty) {
-                if (persistentProperty.isUnique()) {
-                    if (unique!=null) throw new MappingException("Duplicate unique property " + persistentProperty.getName()+ ", " + unique.getName() + " has already been defined. Only one unique property is allowed per type");
-                    unique = persistentProperty;
+            public void doWithPersistentProperty(Neo4jPersistentProperty property) {
+                if (property.isUnique()) {
+                    if (unique!=null) throw new MappingException("Duplicate unique property " + qualifiedPropertyName(property)+ ", " + qualifiedPropertyName(uniqueProperty) + " has already been defined. Only one unique property is allowed per type");
+                    unique = property;
                 }
             }
         });
@@ -87,7 +91,11 @@ public class Neo4jPersistentEntityImpl<T> extends BasicPersistentEntity<T, Neo4j
         }
         final Neo4jPersistentProperty idProperty = getIdProperty();
         if (idProperty == null) throw new MappingException("No id property in " + this);
-        if (idProperty.getType().isPrimitive()) throw new MappingException("The type of the id-property in " + idProperty+" must not be a primitive type but an object type like java.lang.Long");
+        if (idProperty.getType().isPrimitive()) throw new MappingException("The type of the id-property in " + qualifiedPropertyName(idProperty)+" must not be a primitive type but an object type like java.lang.Long");
+    }
+
+    private String qualifiedPropertyName(Neo4jPersistentProperty persistentProperty) {
+        return getName() + "." + persistentProperty.getName();
     }
 
     public boolean useShortNames() {
@@ -233,5 +241,46 @@ public class Neo4jPersistentEntityImpl<T> extends BasicPersistentEntity<T, Neo4j
 
     public Neo4jPersistentProperty getUniqueProperty() {
         return uniqueProperty;
+    }
+
+    @Override
+    public Collection<String> getAllLabels() {
+        return labels;
+    }
+
+    private Set<String> computeLabels() {
+        String alias = storedType.getAlias().toString();
+        final Set<String> labels = collectSuperTypeLabels(storedType, new LinkedHashSet<String>());
+        labels.addAll(computeIndexBasedLabels(this));
+        labels.add(alias);
+        // TODO workaround check if this MC is label based from the TRS
+//        labels.add(LabelBasedNodeTypeRepresentationStrategy.LABELSTRATEGY_PREFIX+alias);
+        return labels;
+    }
+
+    private Set<String> computeIndexBasedLabels(Neo4jPersistentEntity<?> entity) {
+        final Set<String> labels = new LinkedHashSet<>();
+        entity.doWithProperties(new PropertyHandler<Neo4jPersistentProperty>() {
+            @Override
+            public void doWithPersistentProperty(Neo4jPersistentProperty persistentProperty) {
+                if (persistentProperty.isIndexed()) {
+                    IndexInfo indexInfo = persistentProperty.getIndexInfo();
+                    if (indexInfo.isLabelBased()) {
+                        labels.add(indexInfo.getIndexName());
+                    }
+                }
+            }
+        });
+        return labels;
+    }
+
+    private Set<String> collectSuperTypeLabels(StoredEntityType type, Set<String> labels) {
+        if (type==null) return labels;
+        for (StoredEntityType superType : type.getSuperTypes()) {
+            labels.addAll(superType.getEntity().getAllLabels());
+            labels.addAll(computeIndexBasedLabels(superType.getEntity()));
+            collectSuperTypeLabels(superType, labels);
+        }
+        return labels;
     }
 }

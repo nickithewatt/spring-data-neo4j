@@ -18,6 +18,7 @@ package org.springframework.data.neo4j.model;
 
 import org.neo4j.graphdb.*;
 import org.springframework.data.annotation.Transient;
+import org.springframework.data.geo.Point;
 import org.springframework.data.neo4j.annotation.*;
 import org.springframework.data.neo4j.fieldaccess.DynamicProperties;
 import org.springframework.data.neo4j.support.index.IndexType;
@@ -39,19 +40,22 @@ public class Person implements Being , Serializable {
     @GraphId
 	private Long graphId;
 
-    @Indexed(indexName = NAME_INDEX)
+    @Indexed(indexName = NAME_INDEX,indexType = IndexType.SIMPLE)
     @Size(min = 3, max = 20)
 	private String name;
 
 	@Indexed
 	private String nickname;
 
+    @Indexed(indexType = IndexType.LABEL)
+    private String alias;
+
 	@Indexed(indexType = IndexType.POINT, indexName="personLayer")
-    private String wkt;
+    private Point wkt;
 
 	@Max(100)
 	@Min(0)
-    @Indexed
+    @Indexed(numeric = true)
     private int age;
 
 	private Object dynamicProperty;
@@ -196,12 +200,8 @@ public class Person implements Being , Serializable {
 		this.boss = boss;
 	}
 	
-	public void setLocation(String locationInWkt) {
-        this.wkt = locationInWkt;
-    }
-
     public void setLocation(double lon, double lat) {
-        this.wkt = "POINT ( "+lon+" "+lat+" )";
+        this.wkt = new Point(lon,lat);
     }
 
 	@Override
@@ -326,5 +326,13 @@ public class Person implements Being , Serializable {
 
     public void addSerialFriend(Person serialFriend) {
         getSerialFriends().add(serialFriend);
+    }
+
+    public String getAlias() {
+        return alias;
+    }
+
+    public void setAlias(String alias) {
+        this.alias = alias;
     }
 }

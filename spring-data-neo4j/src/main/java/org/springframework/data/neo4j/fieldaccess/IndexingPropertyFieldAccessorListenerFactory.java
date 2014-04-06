@@ -40,7 +40,7 @@ public class IndexingPropertyFieldAccessorListenerFactory<S extends PropertyCont
 
     @Override
     public boolean accept(final Neo4jPersistentProperty property) {
-        return isPropertyField(property) && property.isIndexed();
+        return isPropertyField(property) && property.isIndexed() && !property.getIndexInfo().isLabelBased();
     }
 
 

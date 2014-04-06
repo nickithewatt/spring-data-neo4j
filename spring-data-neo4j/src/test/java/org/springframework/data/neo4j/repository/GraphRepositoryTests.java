@@ -22,19 +22,21 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Transaction;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.neo4j.model.*;
+import org.springframework.data.neo4j.repositories.*;
+import org.springframework.data.neo4j.repositories.FriendshipRepository;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
+import org.springframework.data.neo4j.support.ReferenceNodes;
 import org.springframework.data.neo4j.support.conversion.NoSuchColumnFoundException;
 import org.springframework.data.neo4j.support.node.Neo4jHelper;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.CleanContextCacheTestExecutionListener;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestExecutionListeners;
@@ -80,11 +82,11 @@ public class GraphRepositoryTests {
     private PlatformTransactionManager transactionManager;
 
     @Autowired
-    private PersonRepository personRepository;
+    private org.springframework.data.neo4j.repositories.PersonRepository personRepository;
     @Autowired
     private BeingRepository beingRepository;
     @Autowired
-    GroupRepository groupRepository;
+    org.springframework.data.neo4j.repositories.GroupRepository groupRepository;
 
     @Autowired
     FriendshipRepository friendshipRepository;
@@ -211,6 +213,14 @@ public class GraphRepositoryTests {
         assertThat( asCollection( teamMembers ), hasItems( testTeam.michael, testTeam.david, testTeam.emil ) );
     }
 
+
+    @Test @Transactional
+    public void testFindQueryResultWithCollection() {
+        org.springframework.data.neo4j.repositories.PersonRepository.TeamResult teamMembers = personRepository.findAllTeamMembersAsGroup(testTeam.sdg);
+        assertThat( teamMembers.getName(), is( testTeam.sdg.getName() ) );
+        assertThat( asCollection( teamMembers.getMembers() ), hasItems( testTeam.michael, testTeam.david, testTeam.emil ) );
+    }
+
     @Test @Transactional
     public void testFindIterableOfPersonWithQueryAnnotationSpatial() {
         Iterable<Person> teamMembers = personRepository.findWithinBoundingBox("personLayer", 55, 15, 57, 17);
@@ -273,11 +283,9 @@ public class GraphRepositoryTests {
     }
 
     @Test @Transactional
-    @Ignore("cypher bug with escaped params")
     public void testFindWithMultipleParameters() {
-        final int depth = 1;
         final int limit = 2;
-        Iterable<Person> teamMembers = personRepository.findSomeTeamMembers(testTeam.sdg.getName(), 0, limit, depth);
+        Iterable<Person> teamMembers = personRepository.findSomeTeamMembers(testTeam.sdg.getName(), 0, limit);
         assertThat(asCollection(teamMembers), hasItems(testTeam.david, testTeam.emil));
     }
 
@@ -286,6 +294,30 @@ public class GraphRepositoryTests {
         final PageRequest page = new PageRequest(0, 1, Sort.Direction.ASC, "member.name","member.age");
         Page<Person> teamMemberPage1 = personRepository.findAllTeamMembersPaged(testTeam.sdg, page);
         assertThat(teamMemberPage1, hasItem(testTeam.david));
+    }
+
+    @Test @Transactional
+    public void testFindSliced() {
+        final PageRequest page = new PageRequest(0, 1, Sort.Direction.ASC, "member.name","member.age");
+        Slice<Person> teamMemberSlice = personRepository.findAllTeamMembersSliced(testTeam.sdg, page);
+        assertThat(teamMemberSlice, hasItem(testTeam.david));
+        assertThat(teamMemberSlice.hasNext(),is(true));
+    }
+
+    @Test @Transactional
+    public void testFindSlicedLastPage() {
+        final PageRequest page = new PageRequest(2, 1, Sort.Direction.ASC, "member.name","member.age");
+        Slice<Person> teamMemberSlice = personRepository.findAllTeamMembersSliced(testTeam.sdg, page);
+        assertThat(teamMemberSlice, hasItem(testTeam.michael));
+        assertThat(teamMemberSlice.hasNext(),is(false));
+    }
+
+    @Test @Transactional
+    public void testFindSlicedLastAll() {
+        final PageRequest page = new PageRequest(0, 3, Sort.Direction.ASC, "member.name","member.age");
+        Slice<Person> teamMemberSlice = personRepository.findAllTeamMembersSliced(testTeam.sdg, page);
+        assertThat(teamMemberSlice, hasItems(testTeam.david, testTeam.emil, testTeam.michael));
+        assertThat(teamMemberSlice.hasNext(), is(false));
     }
 
     @Test @Transactional 
@@ -438,7 +470,7 @@ public class GraphRepositoryTests {
 
     @Test @Transactional
     public void testConnectToRootEntity() {
-        final Node referenceNode = neo4jTemplate.getReferenceNode();
+        final Node referenceNode = ReferenceNodes.obtainReferenceNode(gdb,"root");
         neo4jTemplate.postEntityCreation(referenceNode,RootEntity.class);
         final RootEntity root = neo4jTemplate.findOne(referenceNode.getId(), RootEntity.class);
         root.setRootName("RootName");
@@ -464,8 +496,8 @@ public class GraphRepositoryTests {
     @Transactional
     public void findWithMapResult() throws InterruptedException
     {
-        Iterable<PersonRepository.NameAndPersonResult> result = personRepository.getAllNamesAndPeople();
-        PersonRepository.NameAndPersonResult nameAndPerson = IteratorUtil.first( result );
+        Iterable<org.springframework.data.neo4j.repositories.PersonRepository.NameAndPersonResult> result = personRepository.getAllNamesAndPeople();
+        org.springframework.data.neo4j.repositories.PersonRepository.NameAndPersonResult nameAndPerson = IteratorUtil.first( result );
         assertEquals( testTeam.david.getName(), nameAndPerson.getName() );
         assertEquals( testTeam.david, nameAndPerson.getPerson() );
     }
@@ -500,7 +532,7 @@ public class GraphRepositoryTests {
                         txTemplate.execute(new TransactionCallbackWithoutResult() {
                             @Override
                             protected void doInTransactionWithoutResult(TransactionStatus transactionStatus) {
-                                Car singleCar = template.query("start user=node:User(name={name}) match user-[:Loves]->car return car limit 1", map("name", "foo")).to(Car.class).singleOrNull();
+                                Car singleCar = template.query("MATCH (use:User {name:{name}})-[:Loves]->car return car limit 1", map("name", "foo")).to(Car.class).singleOrNull();
                                 //Car singleCar = userRepository.getSingleCar("foo");
                                 assertEquals(singleCar.id, car.id);
                                 counter.incrementAndGet();

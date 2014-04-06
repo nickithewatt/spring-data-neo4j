@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>org.springframework.data</groupId>
 		<artifactId>spring-data-neo4j-parent</artifactId>
-		<version>3.0.0.BUILD-SNAPSHOT</version>
+		<version>3.1.0.BUILD-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 	
@@ -24,7 +24,6 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-beans</artifactId>
-			<version>${spring}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>commons-logging</groupId>
@@ -35,44 +34,40 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-tx</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-aspects</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-orm</artifactId>
-			<version>${spring}</version>
 		</dependency>
 
 		<!-- Spring Data -->
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j-aspects</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 		</dependency>
 		
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j-tx</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j</artifactId>
 			<type>test-jar</type>
 			<scope>test</scope>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 		</dependency>
-
 
 		<dependency>
 			<groupId>org.aspectj</groupId>

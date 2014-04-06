@@ -7,19 +7,18 @@
 
 	<name>Spring Data Neo4j - Rest Binding</name>
 	<description>pring Data Neo4j Wrapper for the Neo4j REST API, provides a Graph Database proxy for the remote invocation.</description>
-	<version>3.0.0.BUILD-SNAPSHOT</version>
 
 	<parent>
 		<groupId>org.springframework.data</groupId>
 		<artifactId>spring-data-neo4j-parent</artifactId>
-		<version>3.0.0.BUILD-SNAPSHOT</version>
+		<version>3.1.0.BUILD-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<properties>
 		<validation>1.0.0.GA</validation>
 		<jersey.version>1.9</jersey.version>
-		<neo4j-rest-graphdb.version>2.0.0-M06</neo4j-rest-graphdb.version>
+		<neo4j-rest-graphdb.version>2.0.1</neo4j-rest-graphdb.version>
 	</properties>
 
 	<dependencies>
@@ -28,32 +27,26 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-tx</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-context</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-beans</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-aspects</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-aop</artifactId>
-			<version>${spring}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-core</artifactId>
-			<version>${spring}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>commons-logging</groupId>
@@ -73,7 +66,22 @@
 			<version>${neo4j.version}</version>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
+
+        <dependency>
+            <groupId>com.mysema.querydsl</groupId>
+            <artifactId>querydsl-lucene3</artifactId>
+            <version>${querydsl}</version>
+            <optional>true</optional>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.lucene</groupId>
+                    <artifactId>lucene-core</artifactId>
+                </exclusion>
+            </exclusions>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
 			<groupId>org.neo4j</groupId>
 			<artifactId>neo4j-kernel</artifactId>
 			<version>${neo4j.version}</version>
@@ -84,7 +92,7 @@
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.neo4j</groupId>
@@ -120,6 +128,10 @@
 			   <exclusion>
 				   <groupId>org.neo4j</groupId>
 				   <artifactId>neo4j-lucene-index</artifactId>
+			   </exclusion>
+			   <exclusion>
+				   <groupId>org.neo4j</groupId>
+				   <artifactId>server-api</artifactId>
 			   </exclusion>
 			</exclusions>
 		</dependency>
@@ -211,14 +223,14 @@
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j-aspects</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 			<scope>test</scope>
 		</dependency>
 
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 			<scope>test</scope>
 			<type>test-jar</type>
 		</dependency>
@@ -226,7 +238,7 @@
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-neo4j-aspects</artifactId>
-			<version>3.0.0.BUILD-SNAPSHOT</version>
+			<version>3.1.0.BUILD-SNAPSHOT</version>
 			<scope>test</scope>
 			<type>test-jar</type>
 		</dependency>

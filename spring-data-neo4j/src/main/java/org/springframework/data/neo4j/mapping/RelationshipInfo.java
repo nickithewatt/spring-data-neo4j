@@ -67,26 +67,28 @@ public class RelationshipInfo {
         this.readonly = isCollection() && typeInformation.getType().equals(Iterable.class);
     }
 
-    public static RelationshipInfo fromField(Field field, TypeInformation<?> typeInformation, Neo4jMappingContext ctx) {
-        return new RelationshipInfo(field.getName(), Direction.OUTGOING, typeInformation,null, ctx);
+    public static RelationshipInfo fromField(String name, TypeInformation<?> typeInformation, Neo4jMappingContext ctx) {
+        return new RelationshipInfo(name, Direction.OUTGOING, typeInformation,null, ctx);
     }
 
-    public static RelationshipInfo fromField(Field field, RelatedTo annotation, TypeInformation<?> typeInformation, Neo4jMappingContext ctx) {
+    public static RelationshipInfo fromField(String name, RelatedTo annotation, TypeInformation<?> typeInformation, Neo4jMappingContext ctx) {
         RelationshipInfo relationshipInfo = new RelationshipInfo(
-                annotation.type().isEmpty() ? field.getName() : annotation.type(),
+                annotation.type().isEmpty() ? name : annotation.type(),
                 annotation.direction(),
                 typeInformation,
                 annotation.elementClass() != Object.class ? ClassTypeInformation.from(annotation.elementClass()) : null,
                 ctx
         );
-        if (relationshipInfo.isRelatedToVia()) throw new MappingException("Relationship field with NodeEntity "+relationshipInfo.getTargetEntity().getType()+" annotated with @RelatedTo");
+        if (relationshipInfo.isRelatedToVia()) {
+            throw new MappingException("Relationship field with NodeEntity "+relationshipInfo.getTargetEntity().getType()+" annotated with @RelatedTo");
+        }
         return relationshipInfo;
     }
 
-    public static RelationshipInfo fromField(Field field, RelatedToVia annotation, TypeInformation<?> typeInformation, Neo4jMappingContext ctx) {
+    public static RelationshipInfo fromField(String name, RelatedToVia annotation, TypeInformation<?> typeInformation, Neo4jMappingContext ctx) {
         final TypeInformation<?> elementClass = elementClass(annotation, typeInformation);
         RelationshipInfo relationshipInfo = new RelationshipInfo(
-                relationshipType(field, annotation, typeInformation),
+                relationshipType(annotation, typeInformation),
                 annotation.direction(),
                 typeInformation,
                 elementClass,
@@ -96,11 +98,13 @@ public class RelationshipInfo {
         return relationshipInfo;
     }
 
-    private static String relationshipType(Field field, RelatedToVia annotation, TypeInformation<?> typeInformation) {
+    private static String relationshipType(RelatedToVia annotation, TypeInformation<?> typeInformation) {
         if (!annotation.type().isEmpty()) return annotation.type();
         final TypeInformation<?> relationshipEntityType = elementClass(annotation, typeInformation);
         final RelationshipEntity relationshipEntity = relationshipEntityType.getType().getAnnotation(RelationshipEntity.class);
-        if (relationshipEntity==null) throw new MappingException(typeInformation.getType()+" is no RelationshipEntity");
+        if (relationshipEntity==null) {
+            throw new MappingException(typeInformation.getType()+" is no RelationshipEntity");
+        }
         if (relationshipEntity.type()==null || relationshipEntity.type().isEmpty()) {
             throw new MappingException("Relationship entity must have a default type");
         }

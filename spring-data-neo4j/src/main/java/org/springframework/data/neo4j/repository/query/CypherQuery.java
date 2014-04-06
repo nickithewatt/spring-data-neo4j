@@ -18,11 +18,9 @@ package org.springframework.data.neo4j.repository.query;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mapping.context.PersistentPropertyPath;
-import org.springframework.data.neo4j.core.TypeRepresentationStrategy;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
-import org.springframework.data.neo4j.support.typerepresentation.LabelBasedNodeTypeRepresentationStrategy;
 import org.springframework.data.repository.query.Parameter;
 import org.springframework.data.repository.query.parser.Part;
 
@@ -43,10 +41,10 @@ public class CypherQuery implements CypherQueryDefinition {
     private boolean isCountQuery = false;
     private boolean useLabels = false;
 
-    public CypherQuery(final Neo4jPersistentEntity<?> entity, Neo4jTemplate template, TypeRepresentationStrategy nodeTypeRepresentationStrategy) {
+    public CypherQuery(final Neo4jPersistentEntity<?> entity, Neo4jTemplate template, boolean useLabels) {
         this.entity = entity;
         this.template = template;
-        this.useLabels = nodeTypeRepresentationStrategy instanceof LabelBasedNodeTypeRepresentationStrategy;
+        this.useLabels = useLabels;
     }
 
     private String getEntityName(Neo4jPersistentEntity<?> entity) {
@@ -62,26 +60,41 @@ public class CypherQuery implements CypherQueryDefinition {
     private String defaultMatchBasedStartClause(Neo4jPersistentEntity<?> entity) {
         return  String.format(QueryTemplates.DEFAULT_LABELBASED_MATCH_START_CLAUSE,
                 getEntityName(entity),
-                entity.getEntityType().getAlias());
+                toLabelString(entity.getAllLabels()));
+    }
+
+    private String toLabelString(Collection<String> labels) {
+        if (labels==null || labels.isEmpty()) return "";
+        StringBuilder sb=new StringBuilder();
+        for (String label : labels) {
+            sb.append(":`").append(label).append("`");
+        }
+        return sb.toString();
     }
 
     public void addPart(Part part, PersistentPropertyPath<Neo4jPersistentProperty> path) {
         String variable = variableContext.getVariableFor(path);
 
         final PartInfo partInfo = new PartInfo(path, variable, part, index);
+        MatchClause matchClause = new MatchClause(path);
         // index("a:foo AND b:bar")
         // a=index1(a="foo"), b=index2(b="bar") where a=b - not good b/c of cross product
         // index1(a=foo) where a.foo=bar
         Neo4jPersistentProperty leafProperty = partInfo.getLeafProperty();
-        if (partInfo.isPrimitiveProperty() && !leafProperty.isIdProperty()) {
+        boolean isIdProperty = leafProperty.isIdProperty();
+        boolean addedMatchClause = false;
+        if (partInfo.isPrimitiveProperty() && !isIdProperty) {
             if (!addedStartClause(partInfo)) {
                 whereClauses.add(new WhereClause(partInfo,template));
             }
-        } else if (leafProperty.isRelationship() || leafProperty.isIdProperty()) {
-            startClauses.add(new GraphIdStartClause(partInfo));
+        } else if (leafProperty.isRelationship() || isIdProperty) {
             if (useLabels) {
+                whereClauses.add(new IdPropertyWhereClause(new PartInfo(path, variable, part, index), template));
                 whereClauses.add(new LabelBasedTypeRestrictingWhereClause(new PartInfo(path, variableContext.getVariableFor(entity), part, -1), entity, template));
+                matchClauses.add(matchClause);
+                addedMatchClause = true;
             } else {
+                startClauses.add(new GraphIdStartClause(partInfo));
                 whereClauses.add(new IndexBasedTypeRestrictingWhereClause(new PartInfo(path, variableContext.getVariableFor(entity), part, -1), entity, template));
             }
         } else {
@@ -89,9 +102,7 @@ public class CypherQuery implements CypherQueryDefinition {
         }
         index += 1;
 
-        MatchClause matchClause = new MatchClause(path);
-
-        if (matchClause.hasRelationship()) {
+        if (!addedMatchClause && matchClause.hasRelationship()) {
             matchClauses.add(matchClause);
         }
     }
@@ -106,8 +117,7 @@ public class CypherQuery implements CypherQueryDefinition {
         for (Sort.Order o : sorts) {
             entityAwareOrders.add( getEntityAwareOrderRef(o) );
         }
-        Sort entityAwareSort = new Sort(entityAwareOrders);
-        return entityAwareSort;
+        return new Sort(entityAwareOrders);
     }
 
     private Sort.Order getEntityAwareOrderRef(Sort.Order o) {
@@ -118,7 +128,8 @@ public class CypherQuery implements CypherQueryDefinition {
     }
 
     private boolean addedStartClause(PartInfo partInfo) {
-        if (!partInfo.isIndexed()) return false;
+
+        if (!partInfo.isIndexed() || partInfo.isLabelIndexed()) return false;
 
         ListIterator<StartClause> it = startClauses.listIterator();
         while (it.hasNext()) {
@@ -287,7 +298,7 @@ public class CypherQuery implements CypherQueryDefinition {
             builder.append(addSorts(
                     applyMissingRefs ? getCypherEntityRefAwareSort(sort) : sort));
         }
-        return builder.toString();
+        return builder.toString().trim();
     }
 
     @Override
@@ -297,7 +308,7 @@ public class CypherQuery implements CypherQueryDefinition {
         }
         StringBuilder builder = new StringBuilder(toQueryString(pageable.getSort()));
         builder.append(String.format(QueryTemplates.SKIP_LIMIT, pageable.getOffset(), pageable.getPageSize()));
-        return builder.toString();
+        return builder.toString().trim();
     }
 
     @Override

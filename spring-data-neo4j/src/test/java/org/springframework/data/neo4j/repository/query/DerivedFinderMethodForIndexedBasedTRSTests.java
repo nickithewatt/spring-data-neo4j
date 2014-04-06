@@ -18,7 +18,6 @@ package org.springframework.data.neo4j.repository.query;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.neo4j.index.lucene.ValueContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.neo4j.core.NodeTypeRepresentationStrategy;
 import org.springframework.data.neo4j.support.typerepresentation.IndexBasedNodeTypeRepresentationStrategy;
@@ -28,13 +27,12 @@ import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.test.context.transaction.TransactionalTestExecutionListener;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 /**
  * Tests for the various finder method based scenarios
@@ -47,7 +45,7 @@ import static org.hamcrest.Matchers.instanceOf;
 @TestExecutionListeners({CleanContextCacheTestExecutionListener.class, DependencyInjectionTestExecutionListener.class, TransactionalTestExecutionListener.class})
 public class DerivedFinderMethodForIndexedBasedTRSTests extends AbstractDerivedFinderMethodTestBase {
 
-    private static final String DEFAULT_START_CLAUSE = "START `thing`=node:__types__(className=\"org.springframework.data.neo4j.repository.query.AbstractDerivedFinderMethodTestBase$Thing\")";
+    private static final String DEFAULT_START_CLAUSE = "START `thing`=node:__types__(className=\"Thing\")";
 
     @Autowired
     NodeTypeRepresentationStrategy strategy;
@@ -67,7 +65,7 @@ public class DerivedFinderMethodForIndexedBasedTRSTests extends AbstractDerivedF
         this.trsSpecificExpectedQuery =
                 "START `thing_owner`=node({0}) " +
                 "MATCH (`thing`)-[:`owner`]->(`thing_owner`) " +
-                "WHERE `thing`.__type__ IN ['org.springframework.data.neo4j.repository.query.AbstractDerivedFinderMethodTestBase$Thing'] ";
+                "WHERE `thing`.__type__ IN ['Thing'] ";
         super.testQueryWithEntityGraphId();
     }
 
@@ -89,6 +87,21 @@ public class DerivedFinderMethodForIndexedBasedTRSTests extends AbstractDerivedF
                 "START `thing`=node:`Thing`(`firstName`={0}) RETURN `thing`";
         this.trsSpecificExpectedParams = new Object[] { "foo" };
         super.testIndexQueryWithOneParam();
+    }
+
+    @Test
+    @Override
+    public void testSchemaIndexQueryWithOneParam() throws Exception {
+
+        /*
+            TODO - Determine exactly what correct query should be when
+                   using a schema based index and a Legacy based TRS
+         */
+        // "findByAlias",
+        this.trsSpecificExpectedQuery = DEFAULT_START_CLAUSE +
+                " WHERE `thing`.`alias` = {0} RETURN `thing`";
+        this.trsSpecificExpectedParams = new Object[] { "foo" };
+        super.testSchemaIndexQueryWithOneParam();
     }
 
     @Test
@@ -360,6 +373,12 @@ public class DerivedFinderMethodForIndexedBasedTRSTests extends AbstractDerivedF
         this.trsSpecificExpectedQuery =
                 "START `thing`=node:`Thing`(`number`={0}) RETURN `thing`";
         super.testFindByNumericIndexedField();
+    }
+
+    @Test
+    @Transactional
+    public void testMultipleIndexedFields() throws Exception {
+        super.testMultipleIndexedFields();
     }
 
 }

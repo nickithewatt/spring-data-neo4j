@@ -16,6 +16,7 @@
 
 package org.springframework.data.neo4j.aspects.support;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.neo4j.graphdb.Direction;
@@ -25,13 +26,16 @@ import org.neo4j.graphdb.traversal.Evaluators;
 import org.neo4j.graphdb.traversal.TraversalDescription;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.neo4j.kernel.Traversal;
-import org.neo4j.kernel.impl.traversal.TraversalDescriptionImpl;
 import org.springframework.data.neo4j.aspects.Group;
 import org.springframework.data.neo4j.aspects.Person;
 import org.springframework.data.neo4j.core.EntityPath;
 import org.springframework.data.neo4j.repository.GraphRepository;
+import org.springframework.test.context.CleanContextCacheTestExecutionListener;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
+import org.springframework.test.context.transaction.TransactionalTestExecutionListener;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
@@ -42,7 +46,7 @@ import static org.springframework.data.neo4j.aspects.Person.persistedPerson;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(locations = {"classpath:org/springframework/data/neo4j/aspects/support/Neo4jGraphPersistenceTests-context.xml"})
-
+@TestExecutionListeners({CleanContextCacheTestExecutionListener.class, DependencyInjectionTestExecutionListener.class, TransactionalTestExecutionListener.class})
 public class TraversalTests extends EntityTestBase {
 
     @Test
@@ -85,6 +89,8 @@ public class TraversalTests extends EntityTestBase {
         group.addPerson(p);
         assertEquals(Collections.singletonList(p),IteratorUtil.asCollection(group.getPeople()));
     }
+
+//    @Ignore("TODO - add back when strict setting working properly again in AbstractMappingContext.getPersistentEntity")
     @Test
     @Transactional
     public void testTraverseFieldFromGroupToPeopleNodes() {
@@ -94,6 +100,7 @@ public class TraversalTests extends EntityTestBase {
         assertEquals(Collections.singletonList(getNodeState(p)), IteratorUtil.asCollection(group.getPeopleNodes()));
     }
 
+//    @Ignore("TODO - add back when strict setting working properly again in AbstractMappingContext.getPersistentEntity")
     @Test
     @Transactional
     public void testTraverseFieldFromGroupToPeopleRelationships() {
@@ -112,7 +119,7 @@ public class TraversalTests extends EntityTestBase {
         Group group = persist(new Group());
         group.setName("dev");
         group.addPerson(p);
-        final TraversalDescription traversalDescription = new TraversalDescriptionImpl().relationships(DynamicRelationshipType.withName("persons")).evaluator(Evaluators.excludeStartPosition());
+        final TraversalDescription traversalDescription = Traversal.description().relationships(DynamicRelationshipType.withName("persons")).evaluator(Evaluators.excludeStartPosition());
         Iterable<Person> people = finder.findAllByTraversal(group, traversalDescription);
         final HashSet<Person> found = new HashSet<Person>();
         for (Person person : people) {

@@ -21,6 +21,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.neo4j.test.TestGraphDatabaseFactory;
@@ -32,6 +33,7 @@ import org.springframework.data.neo4j.annotation.*;
 import org.springframework.data.neo4j.config.EnableNeo4jRepositories;
 import org.springframework.data.neo4j.config.Neo4jConfiguration;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
+import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.neo4j.support.node.Neo4jHelper;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -68,7 +70,7 @@ class Dish {
     @GraphId
     Long id;
 
-    @Indexed(unique = true) int number;
+    @Indexed(unique = true,numeric = true) int number;
 
     Dish() {
     }
@@ -174,6 +176,10 @@ public class DerivedFinderTests {
     @EnableNeo4jRepositories
     static class TestConfig extends Neo4jConfiguration {
 
+        TestConfig() throws ClassNotFoundException {
+            setBasePackage("org.springframework.data.neo4j.repository","org.springframework.data.neo4j.model");
+        }
+
         @Bean
         GraphDatabaseService graphDatabaseService() {
             return new TestGraphDatabaseFactory().newImpermanentDatabase();
@@ -205,7 +211,7 @@ public class DerivedFinderTests {
 
         CRUDRepository<Ingredient> ingredientRepository = template.repositoryFor(Ingredient.class);
 
-        transaction = graphDatabaseService.beginTx();
+        Transaction tx = graphDatabaseService.beginTx();
         try {
             chocolate = ingredientRepository.save(new Ingredient("chocolate"));
             fish = ingredientRepository.save(new Ingredient("fish"));
@@ -224,17 +230,29 @@ public class DerivedFinderTests {
             whiteChocolateSquares = recipeRepository.save(new Recipe("Heston", "White Chocolate squares", chocolate, null, null));
 
             dish = dishRepository.save(new Dish(100));
-            transaction.success();
+            tx.success();
         } finally {
-            transaction.finish();
+            tx.close();
         }
+        tx = graphDatabaseService.beginTx();
+        try {
+            for (Node node : graphDatabaseService.getAllNodes()) {
+                System.out.println("node = " + node);
+            }
+            tx.success();
+        } finally {
+            tx.close();
+        }
+
         transaction = graphDatabaseService.beginTx();
     }
 
     @After
     public void tearDown() throws Exception {
         if (transaction!=null) {
-            transaction.success();transaction.finish();
+            transaction.success();
+            transaction.close();
+            transaction = null;
         }
     }
 
@@ -339,6 +357,10 @@ public class DerivedFinderTests {
     @Test
     public void shouldFindUsingEntityAndPropertyTraversal() throws Exception {
         Set<Recipe> recipes = recipeRepository.findByIngredientAndCookBookTitle(oliveOil, "Naked Chef");
+
+        for (Node node : graphDatabaseService.getAllNodes()) {
+            System.out.println("in test = " + node);
+        }
 
         assertThat(single(recipes).title, is(equalTo("pesto")));
     }

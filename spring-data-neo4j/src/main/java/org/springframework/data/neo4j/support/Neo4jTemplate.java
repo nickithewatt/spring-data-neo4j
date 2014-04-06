@@ -30,8 +30,6 @@ import org.springframework.core.convert.ConversionService;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.mapping.model.MappingException;
-import org.springframework.data.neo4j.annotation.QueryType;
-import org.springframework.data.neo4j.conversion.EndResult;
 import org.springframework.data.neo4j.conversion.QueryResultBuilder;
 import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.data.neo4j.conversion.ResultConverter;
@@ -50,11 +48,12 @@ import org.springframework.data.neo4j.mapping.RelationshipResult;
 import org.springframework.data.neo4j.repository.GraphRepository;
 import org.springframework.data.neo4j.repository.NodeGraphRepositoryImpl;
 import org.springframework.data.neo4j.repository.RelationshipGraphRepository;
-import org.springframework.data.neo4j.support.conversion.EntityResultConverter;
 import org.springframework.data.neo4j.support.index.IndexProvider;
 import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.neo4j.support.mapping.*;
+import org.springframework.data.neo4j.support.query.CypherQueryEngine;
 import org.springframework.data.neo4j.support.query.QueryEngine;
+import org.springframework.data.neo4j.support.schema.SchemaIndexProvider;
 import org.springframework.data.neo4j.template.GraphCallback;
 import org.springframework.data.neo4j.template.Neo4jOperations;
 import org.springframework.data.util.ClassTypeInformation;
@@ -65,9 +64,11 @@ import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.validation.Validator;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
+import static java.lang.String.format;
 import static org.springframework.data.neo4j.support.ParameterCheck.notNull;
 
 /**
@@ -133,20 +134,47 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
         throw new IllegalArgumentException("Can't create graph repository for non-graph entity of type " + clazz);
     }
 
+    // Legacy Indexes Below
 
-    public <S extends PropertyContainer, T> Index<S> getIndex(Class<T> type) {
+    @Deprecated public <S extends PropertyContainer, T> Index<S> getIndex(Class<T> type) {
         notNull(type, "entity type");
         return getIndexProvider().getIndex(getPersistentEntity(type), null);
     }
 
-    public <S extends PropertyContainer> Index<S> getIndex(String name) {
+    @Deprecated public <S extends PropertyContainer> Index<S> getIndex(String name) {
         notNull(name, "index name");
         return getIndexProvider().getIndex(null, name);
     }
 
-    public <S extends PropertyContainer, T> Index<S> getIndex(Class<T> type, String indexName, IndexType indexType) {
+    @Deprecated public <S extends PropertyContainer, T> Index<S> getIndex(Class<T> type, String indexName, IndexType indexType) {
         return getIndexProvider().getIndex(getPersistentEntity(type), indexName, indexType);
     }
+
+    // Schema Indexes Below
+
+    /**
+     * Returns the unique entity of type entityClass (if it exists) otherwise returns null.
+     * Note: this method will only work with the newer schema based indexes (not legacy)
+     *
+     * @param entityClass Entity class
+     * @param propertyName Name of uniquely indexed property
+     * @param value value of property to find
+     * @param <T> the entity
+     * @return the unique entity of type entityClass (if it exists) otherwise returns null.
+     *
+     */
+    /*public <T> T findUniqueEntity(final Class<T> entityClass,String propertyName, Object value) {
+        final Neo4jPersistentEntityImpl<?> persistentEntity = getPersistentEntity(entityClass);
+        Neo4jPersistentProperty persistentProperty =  persistentEntity.getPersistentProperty(propertyName);
+
+        boolean labelIndexed = persistentProperty.isIndexed() && persistentProperty.getIndexInfo().isLabelBased();
+        boolean indexedButNotUnique = persistentProperty.isIndexed() && !persistentProperty.isUnique();
+        if (!labelIndexed || indexedButNotUnique) {
+            throw new IllegalArgumentException(format("propertyName '%s' must be uniquely (schema) indexed however it is not", propertyName));
+        }
+        return (T)getSchemaIndexProvider().findAll(persistentProperty,value).singleOrNull();
+    }
+    */
 
     /**
      * @return true if a transaction manager is available and a transaction is currently running
@@ -173,7 +201,7 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
     }
 
     @Override
-    public <T> EndResult<T> findAll(final Class<T> entityClass) {
+    public <T> Result<T> findAll(final Class<T> entityClass) {
         notNull(entityClass, "entity type");
         final ClosableIterable<PropertyContainer> all = infrastructure.getTypeRepresentationStrategies().findAll(getEntityType(entityClass));
         return new QueryResultBuilder<PropertyContainer>(all, getDefaultConverter()).to(entityClass);
@@ -244,16 +272,23 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
      */
     @Override
     public Node createNode() {
-        return getGraphDatabase().createNode(null);
+        return createNode(null, null);
     }
 
     /**
-     * creates the node uniquely or returns an existing node with the same index-key-value combination.
      * properties are used to initialize the node.
      */
     @Override
     public Node createNode(final Map<String, Object> properties) {
-        return getGraphDatabase().createNode(properties);
+        return createNode(properties, null);
+    }
+
+    /**
+     * properties are used to initialize the node.
+     */
+    @Override
+    public Node createNode(final Map<String, Object> properties,Collection<String> labels) {
+        return getGraphDatabase().createNode(properties, labels);
     }
 
     /**
@@ -261,8 +296,17 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
      * properties are used to initialize the node.
      */
     @Override
-    public Node getOrCreateNode(String index, String key, Object value, final Map<String, Object> properties) {
-        return getGraphDatabase().getOrCreateNode(index, key, value, properties);
+    public Node getOrCreateNode(String index, String key, Object value, final Map<String, Object> properties, Collection<String> labels) {
+        return getGraphDatabase().getOrCreateNode(index, key, value, properties, labels);
+    }
+
+    /**
+     * creates the node uniquely or returns an existing node with the same label-key-value combination.
+     * properties are used to initialize the node.
+     */
+    @Override
+    public Node merge(String label, String key, Object value, final Map<String, Object> properties, Collection<String> labels) {
+        return getGraphDatabase().merge(label, key, value, properties, labels);
     }
 
     @Override
@@ -270,7 +314,7 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
         final Node node = createNode(properties);
         if (isNodeEntity(target)) {
             final StoredEntityType entityType = getEntityType(target);
-            infrastructure.getTypeRepresentationStrategies().writeTypeTo(node, entityType);
+            if (entityType!=null) infrastructure.getTypeRepresentationStrategies().writeTypeTo(node, entityType);
         }
         return convert(node, target);
     }
@@ -296,6 +340,10 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
         return getMappingContext().isRelationshipEntity(targetType);
     }
 
+    public boolean isLabelBased() {
+        return getInfrastructure().getNodeTypeRepresentationStrategy().isLabelBased();
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public <T> T save(T entity) {
@@ -318,9 +366,9 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
     public Object query(String statement, Map<String, Object> params, final TypeInformation<?> typeInformation) {
         final TypeInformation<?> actualType = typeInformation.getActualType();
         final Class<Object> targetType = (Class<Object>) actualType.getType();
-        final Result<Object> result = queryEngineFor(QueryType.Cypher).query(statement, params);
+        final Result<Map<String, Object>> result = queryEngineFor().query(statement, params);
         final Class<? extends Iterable<Object>> containerType = (Class<? extends Iterable<Object>>) typeInformation.getType();
-        if (EndResult.class.isAssignableFrom(containerType)) {
+        if (Result.class.isAssignableFrom(containerType)) {
             return result;
         }
         if (actualType.isMap()) {
@@ -425,15 +473,6 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
     }
 
     @Override
-    public Node getReferenceNode() {
-        try {
-            return infrastructure.getGraphDatabase().getReferenceNode();
-        } catch (RuntimeException e) {
-            throw translateExceptionIfPossible(e);
-        }
-    }
-
-    @Override
     public Node getNode(long id) {
         if (id < 0) throw new InvalidDataAccessApiUsageException("id is negative");
         try {
@@ -524,15 +563,15 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
     }
 
     @Override
-    public <T> QueryEngine<T> queryEngineFor(QueryType type) {
-        return infrastructure.getGraphDatabase().queryEngineFor(type, getDefaultConverter());
+    public <T> CypherQueryEngine queryEngineFor() {
+        return infrastructure.getGraphDatabase().queryEngine(getDefaultConverter());
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Result<Map<String, Object>> query(String statement, Map<String, Object> params) {
         notNull(statement, "statement");
-        final QueryEngine<Map<String, Object>> queryEngine = queryEngineFor(QueryType.Cypher);
+        final QueryEngine<Map<String, Object>> queryEngine = queryEngineFor();
         return queryEngine.query(statement, params);
     }
 
@@ -573,12 +612,18 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
     public <T extends PropertyContainer> Result<T> lookup(final Class<?> indexedType, String propertyName, final Object value) {
         notNull(propertyName, "property name", indexedType, "indexedType", value, "query value");
         try {
-
             final Index<T> index = getIndex(indexedType, propertyName);
             return convert(index.query(propertyName, value));
         } catch (RuntimeException e) {
             throw translateExceptionIfPossible(e);
         }
+    }
+
+    @Override
+    public <T> Result<T> findByIndexedValue(final Class<? extends T> indexedType, String propertyName, Object value) {
+        Neo4jPersistentProperty persistentProperty = getPersistentProperty(indexedType, propertyName);
+        if (persistentProperty==null) throw new InvalidDataAccessApiUsageException("Unknown Property "+propertyName+" for "+indexedType);
+        return getSchemaIndexProvider().findByIndexedValue(persistentProperty, value);
     }
 
     @Override
@@ -591,6 +636,9 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
     public <T extends PropertyContainer> Index<T> getIndex(Class<?> indexedType, String propertyName) {
         final Neo4jPersistentProperty property = getPersistentProperty(indexedType, propertyName);
         if (property == null) return getIndexProvider().getIndex(getPersistentEntity(indexedType), null);
+        if (property.isIndexed() && property.getIndexInfo().isLabelBased()) {
+            throw new InvalidDataAccessApiUsageException("Can lookup label based property from legacy index");
+        }
         return getIndexProvider().getIndex(property, indexedType);
     }
 
@@ -604,6 +652,10 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
 
     private IndexProvider getIndexProvider() {
         return infrastructure.getIndexProvider();
+    }
+
+    private SchemaIndexProvider getSchemaIndexProvider() {
+        return infrastructure.getSchemaIndexProvider();
     }
 
     private Neo4jPersistentEntityImpl<?> getPersistentEntity(Class<?> type) {
@@ -669,7 +721,9 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
         final PropertyContainer container = entity instanceof PropertyContainer ? (PropertyContainer) entity : getPersistentState(entity);
         if (container == null) return null;
         final Object alias = getInfrastructure().getTypeRepresentationStrategies().readAliasFrom(container);
-        return getMappingContext().getPersistentEntity(alias).getEntityType();
+        return (alias == null)
+            ? null
+            : getMappingContext().getPersistentEntity(alias).getEntityType();
     }
 
     @Override
@@ -690,8 +744,12 @@ public class Neo4jTemplate implements Neo4jOperations, ApplicationContextAware {
         Object value = uniqueProperty.getValueFromEntity(entity, MappingPolicy.MAP_FIELD_DIRECT_POLICY);
         if (value == null) return createNode();
         final IndexInfo indexInfo = uniqueProperty.getIndexInfo();
-        if (value instanceof Number && indexInfo.isNumeric()) value = ValueContext.numeric((Number) value);
-        return getGraphDatabase().getOrCreateNode(indexInfo.getIndexName(), indexInfo.getIndexKey(), value, Collections.<String, Object>emptyMap());
+        if (indexInfo.isLabelBased()) {
+            return getGraphDatabase().merge(indexInfo.getIndexName(),indexInfo.getIndexKey(),value, Collections.<String,Object>emptyMap(), persistentEntity.getAllLabels());
+        } else {
+            if (value instanceof Number && indexInfo.isNumeric()) value = ValueContext.numeric((Number) value);
+            return getGraphDatabase().getOrCreateNode(indexInfo.getIndexName(), indexInfo.getIndexKey(), value, Collections.<String, Object>emptyMap(), persistentEntity.getAllLabels());
+        }
     }
 
     @Override

@@ -28,10 +28,9 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
 import org.springframework.test.context.transaction.TransactionalTestExecutionListener;
 
-import java.util.Date;
-
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.fail;
 
 /**
  * Tests for the various finder method based scenarios
@@ -44,7 +43,7 @@ import static org.hamcrest.Matchers.instanceOf;
 @TestExecutionListeners({CleanContextCacheTestExecutionListener.class, DependencyInjectionTestExecutionListener.class, TransactionalTestExecutionListener.class})
 public class DerivedFinderMethodForLabelBasedTRSTests extends AbstractDerivedFinderMethodTestBase {
 
-    private static final String DEFAULT_MATCH_CLAUSE = "MATCH (`thing`:`org.springframework.data.neo4j.repository.query.AbstractDerivedFinderMethodTestBase$Thing`)";
+    private static final String DEFAULT_MATCH_CLAUSE = "MATCH (`thing`:`"+THING_NAME+"`)";
 
     @Autowired
     NodeTypeRepresentationStrategy strategy;
@@ -61,8 +60,17 @@ public class DerivedFinderMethodForLabelBasedTRSTests extends AbstractDerivedFin
     @Override
     public void testQueryWithEntityGraphId() throws Exception {
         // findByOwnerId
-        this.trsSpecificExpectedQuery = "START `thing_owner`=node({0}) MATCH (`thing`)-[:`owner`]->(`thing_owner`) WHERE `thing`:`org.springframework.data.neo4j.repository.query.AbstractDerivedFinderMethodTestBase$Thing` ";
+        this.trsSpecificExpectedQuery = "MATCH (`thing`)-[:`owner`]->(`thing_owner`) WHERE id(`thing_owner`) = {0} AND `thing`:`"+THING_NAME+"` RETURN `thing`";
         super.testQueryWithEntityGraphId();
+    }
+
+    @Test
+    public void testQueryWithGraphId() throws Exception {
+        assertRepositoryQueryMethod(ThingRepository.class,
+                "findById",
+                new Object[]{123},
+                getExpectedQuery("MATCH (`thing`) WHERE id(`thing`) = {0}"),
+                getExpectedParams(123));
     }
 
     @Test
@@ -356,5 +364,16 @@ public class DerivedFinderMethodForLabelBasedTRSTests extends AbstractDerivedFin
         // findByNumber
         this.trsSpecificExpectedQuery = "START `thing`=node:`Thing`(`number`={0}) RETURN `thing`";
         super.testFindByNumericIndexedField();
+    }
+
+    @Test
+    @Override
+    public void testSchemaIndexQueryWithOneParam() throws Exception {
+        // findByAlias
+        this.trsSpecificExpectedQuery = DEFAULT_MATCH_CLAUSE +
+                " WHERE `thing`.`alias` = {0}" +
+                " RETURN `thing`";
+        this.trsSpecificExpectedParams = new Object[] { "foo" };
+        super.testSchemaIndexQueryWithOneParam();
     }
 }

@@ -16,7 +16,7 @@
 
 package org.springframework.data.neo4j.repository;
 
-import org.springframework.data.neo4j.conversion.EndResult;
+import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.transaction.annotation.Transactional;
 
 
@@ -24,17 +24,17 @@ import org.springframework.transaction.annotation.Transactional;
  * @author mh
  * @since 29.03.11
  */
-public interface IndexRepository<T> {
-    @Transactional
+@Deprecated public interface IndexRepository<T> {
+    @Transactional @Deprecated
     T findByPropertyValue(String property, Object value);
 
-    @Transactional
-    EndResult<T> findAllByPropertyValue(String property, Object value);
+    @Transactional @Deprecated
+    Result<T> findAllByPropertyValue(String property, Object value);
 
-    @Transactional
-    EndResult<T> findAllByQuery(String key, Object query);
+    @Transactional @Deprecated
+    Result<T> findAllByQuery(String key, Object query);
 
-    @Transactional
-    EndResult<T> findAllByRange(String property, Number from, Number to);
+    @Transactional @Deprecated
+    Result<T> findAllByRange(String property, Number from, Number to);
 
 }

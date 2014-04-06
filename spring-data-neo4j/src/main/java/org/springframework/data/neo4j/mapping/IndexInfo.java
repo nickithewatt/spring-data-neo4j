@@ -15,8 +15,10 @@
  */
 package org.springframework.data.neo4j.mapping;
 
+import org.springframework.data.mapping.model.MappingException;
 import org.springframework.data.neo4j.annotation.Indexed;
 import org.springframework.data.neo4j.support.index.IndexType;
+import org.springframework.data.neo4j.support.mapping.StoredEntityType;
 
 /**
 * @author mh
@@ -30,15 +32,50 @@ public class IndexInfo {
     private String indexKey;
     private final boolean unique;
     private boolean numeric;
+    private Indexed annotation;
+    private Neo4jPersistentProperty property;
 
-    public IndexInfo(Indexed annotation, Neo4jPersistentProperty property) {
-        this.indexName = determineIndexName(annotation, property);
+    public IndexInfo(Indexed annotation,
+                     Neo4jPersistentProperty property) {
+        this.annotation = annotation;
+        this.property = property;
         this.indexType = annotation.indexType();
         fieldName = annotation.fieldName();
         this.indexKey = fieldName.isEmpty() ? property.getNeo4jPropertyName() : fieldName;
         unique = annotation.unique();
         level = annotation.level();
         numeric = annotation.numeric();
+    }
+
+    private String determineLabelIndexName(Indexed annotation, Neo4jPersistentProperty property) {
+        if (!annotation.indexName().isEmpty()) throw new MappingException("No index name allowed on label based indexes, property: "+ property.getOwner().getName()+"."+property.getName());
+        Neo4jPersistentEntity<?> entity = property.getOwner();
+
+        // NW StoredEntityType not available at this stage yet ....
+        // only set when entity.updateStoredType(..) called
+        StoredEntityType entityType = entity.getEntityType();
+        switch (annotation.level()) {
+            case CLASS:
+                Class<?> declaringClass = property.getField().getDeclaringClass();
+                return
+                    (entityType != null)
+                            ? entityType.findByTypeClass(declaringClass).getAlias().toString()
+                            : doBestGuessLabelName(entity);  // Not right but not sure what to do here
+            case INSTANCE:
+                return
+                    (entityType != null)
+                            ? entityType.getAlias().toString()
+                            : doBestGuessLabelName(entity);  // Not right but not sure what to do here
+            case GLOBAL: throw new MappingException("No global index for label based indexes");
+        }
+        return entityType.getAlias().toString();
+    }
+
+    private String doBestGuessLabelName(Neo4jPersistentEntity<?> entity) {
+        if (entity.getTypeAlias() != null) {
+            return (String)entity.getTypeAlias();
+        }
+        return entity.getType().getSimpleName();
     }
 
 
@@ -49,7 +86,15 @@ public class IndexInfo {
         return Indexed.Name.get(annotation.level(), declaringClass, providedIndexName, instanceType);
     }
 
+    public boolean isLabelBased() {
+        return indexType.isLabelBased();
+    }
+
+    // lazy because of deferred persistent entity hierarchy determination on registration
     public String getIndexName() {
+        if (indexName == null) {
+            this.indexName = isLabelBased() ? determineLabelIndexName(annotation, property) : determineIndexName(annotation, property);
+        }
         return indexName;
     }
 

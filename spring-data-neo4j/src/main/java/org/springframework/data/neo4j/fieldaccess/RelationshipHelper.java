@@ -18,11 +18,14 @@ package org.springframework.data.neo4j.fieldaccess;
 import org.neo4j.graphdb.*;
 import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.neo4j.mapping.MappingPolicy;
+import org.springframework.data.neo4j.mapping.Neo4jPersistentEntity;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
+import org.springframework.data.neo4j.support.mapping.Neo4jMappingContext;
 import org.springframework.data.neo4j.support.typerepresentation.LabelBasedNodeTypeRepresentationStrategy;
 import org.springframework.util.Assert;
 
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 import static java.lang.String.format;
@@ -70,6 +73,7 @@ public class RelationshipHelper {
     protected void removeMissingRelationshipsInStoreAndKeepOnlyNewRelationShipsInSet( Node node,
                                                                                       Set<Node> targetNodes,
                                                                                       Class<?> targetType ) {
+        Neo4jMappingContext mappingContext = template.getInfrastructure().getMappingContext();
         for ( Relationship relationship : node.getRelationships( type, direction ) ) {
             if ( !targetNodes.remove( relationship.getOtherNode( node ) ) ) {
                 if ( targetType != null ) {
@@ -81,10 +85,9 @@ public class RelationshipHelper {
                         throw new RuntimeException("Neither a property or Label could be found to work out what the type of the node is at the other end of the relationship ");
                     }
                     try {
-                        if (! targetType.isAssignableFrom(Class.forName((String) actualTargetType))) {
-                            continue;
-                        }
-                    } catch (ClassNotFoundException e) {
+                        Neo4jPersistentEntity<?> persistentEntity = mappingContext.getPersistentEntity(actualTargetType);
+                        if (! targetType.isAssignableFrom(persistentEntity.getType())) continue;
+                    } catch (Exception e) {
                         throw new IllegalStateException(format("Could not read type '%s' - type does not exist", actualTargetType), e);
                     }
                 }
@@ -95,18 +98,10 @@ public class RelationshipHelper {
     }
 
     private Object tryDetermineTypeAssumingLabelBasedStrategy(Relationship relationship,Node node) {
-
-        ResourceIterable<Label> labels = relationship.getOtherNode(node).getLabels();
-        ResourceIterator<Label> iterator = labels.iterator();
-        try {
-            while (iterator.hasNext()) {
-                Label l = iterator.next();
-                if (l.name().startsWith(LabelBasedNodeTypeRepresentationStrategy.LABELSTRATEGY_PREFIX)) {
-                    return l.name().substring(LabelBasedNodeTypeRepresentationStrategy.LABELSTRATEGY_PREFIX.length());
-                }
+        for (Label l : relationship.getOtherNode(node).getLabels()) {
+            if (l.name().startsWith(LabelBasedNodeTypeRepresentationStrategy.LABELSTRATEGY_PREFIX)) {
+                return l.name().substring(LabelBasedNodeTypeRepresentationStrategy.LABELSTRATEGY_PREFIX.length());
             }
-        } finally {
-            iterator.close();
         }
         return null;
 

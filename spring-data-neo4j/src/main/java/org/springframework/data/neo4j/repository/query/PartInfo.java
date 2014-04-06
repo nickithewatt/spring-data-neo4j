@@ -18,6 +18,7 @@ package org.springframework.data.neo4j.repository.query;
 import org.springframework.data.mapping.context.PersistentPropertyPath;
 import org.springframework.data.neo4j.mapping.IndexInfo;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
+import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.repository.query.parser.Part;
 import org.springframework.util.Assert;
 
@@ -59,6 +60,9 @@ public class PartInfo {
         return getLeafProperty().isRelationship();
     }
 
+    public boolean isLabelIndexed() {
+        return isIndexed() && getLeafProperty().getIndexInfo().isLabelBased();
+    }
 
     public boolean isIndexed() {
         return getLeafProperty().isIndexed();
@@ -78,6 +82,9 @@ public class PartInfo {
 
     public boolean isFullText() {
         return isIndexed() && getIndexInfo().isFullText();
+    }
+    public boolean isSpatial() {
+        return isIndexed() && getIndexInfo().getIndexType() == IndexType.POINT;
     }
 
     private IndexInfo getIndexInfo() {

@@ -25,14 +25,15 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.helpers.collection.IteratorUtil;
-import org.neo4j.test.ImpermanentGraphDatabase;
 import org.neo4j.test.TestGraphDatabaseFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.neo4j.conversion.EndResult;
+import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.data.neo4j.model.Group;
 import org.springframework.data.neo4j.model.Person;
+import org.springframework.data.neo4j.repositories.GroupRepository;
+import org.springframework.data.neo4j.repositories.PersonRepository;
 import org.springframework.test.context.CleanContextCacheTestExecutionListener;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.TestExecutionListeners;
@@ -63,7 +64,7 @@ public class NoIndexDerivedFinderTests {
 
     @Test @Transactional
     public void findAllInitiallyWithoutIndexCreation() {
-        EndResult<Person> result = personRepository.findByHeight( (short) 100 );
+        Result<Person> result = personRepository.findByHeight((short) 100);
         assertEquals(0,IteratorUtil.count( result ));
     }
 
@@ -89,7 +90,7 @@ public class NoIndexDerivedFinderTests {
                 final Index<Node> index = gdb.index().forNodes("Test");
                 assertEquals("Test", gdb.index().nodeIndexNames()[0]);
                 tx.success();
-                tx.finish();
+                tx.close();
             }
         };
         t.start();t.join();
@@ -99,7 +100,7 @@ public class NoIndexDerivedFinderTests {
             assertEquals(0,IteratorUtil.count(result));
             assertEquals("Test", gdb.index().nodeIndexNames()[0]);
         } finally {
-            tx.success();tx.finish();
+            tx.success();tx.close();
         }
     }
 }

@@ -20,13 +20,12 @@ import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
 import org.springframework.data.neo4j.annotation.*;
 import org.springframework.data.neo4j.fieldaccess.DynamicProperties;
+import org.springframework.data.neo4j.support.index.IndexType;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.Size;
-import java.util.Date;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 
 @NodeEntity
@@ -36,16 +35,16 @@ public class Person {
     @GraphId
 	private Long graphId;
 
-    @Indexed(indexName = NAME_INDEX)
+    @Indexed(indexName = NAME_INDEX,indexType = IndexType.SIMPLE)
     @Size(min = 3, max = 20)
 	private String name;
 
-	@Indexed
+	@Indexed(indexType = IndexType.SIMPLE)
 	private String nickname;
 
 	@Max(100)
 	@Min(0)
-    @Indexed
+    @Indexed(indexType = IndexType.SIMPLE,numeric = true)
     private int age;
 
 	private Short height;
@@ -91,6 +90,9 @@ public class Person {
 
     @Query(value = "start person=node({self}) match (person)<-[:persons]-(team)-[:persons]->(member) return member.name, member.age")
     private Iterable<Map<String,Object>> otherTeamMemberData;
+
+    @Labels
+    private Collection<String> labels;
 
     public Person(Node n) {
         setPersistentState(n);
@@ -260,5 +262,19 @@ public class Person {
 
     public String getDefaultedName() {
         return defaultedName;
+    }
+
+    public Collection<String> getLabels() {
+        return labels;
+    }
+
+    public void addLabel(String label) {
+        HashSet<String> newLabels = new HashSet<>(this.labels);
+        if (newLabels.add(label)) this.labels = newLabels;
+    }
+
+    public void removeLabel(String label) {
+        HashSet<String> newLabels = new HashSet<>(this.labels);
+        if (newLabels.remove(label)) this.labels = newLabels;
     }
 }

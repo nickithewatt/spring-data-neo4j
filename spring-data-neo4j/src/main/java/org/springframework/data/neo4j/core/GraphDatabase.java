@@ -20,21 +20,17 @@ import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.traversal.TraversalDescription;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.data.neo4j.annotation.QueryType;
 import org.springframework.data.neo4j.conversion.ResultConverter;
 import org.springframework.data.neo4j.support.index.IndexType;
-import org.springframework.data.neo4j.support.query.QueryEngine;
+import org.springframework.data.neo4j.support.query.CypherQueryEngine;
+import org.springframework.data.neo4j.support.query.CypherQueryEngineImpl;
 
 import javax.transaction.TransactionManager;
+import java.util.Collection;
 import java.util.Map;
 
 
 public interface GraphDatabase {
-    /**
-     * @return the reference node of the underlying graph database
-     */
-    Node getReferenceNode();
-
     /**
      * @param id node id
      * @return the requested node of the underlying graph database
@@ -45,13 +41,18 @@ public interface GraphDatabase {
     /**
      * creates the node and initializes its properties
      */
-    Node createNode(Map<String, Object> props);
+    Node createNode(Map<String, Object> props, Collection<String> labels);
 
+    /**
+     * creates the node uniquely or returns an existing node with the same label-key-value combination.
+     * properties are used to initialize the node. It needs a unique constraint to work correctly.
+     */
+    Node merge(String labelName, String key, Object value, final Map<String, Object> properties, Collection<String> labels);
     /**
      * creates the node uniquely or returns an existing node with the same index-key-value combination.
      * properties are used to initialize the node.
      */
-    Node getOrCreateNode(String indexName, String key, Object value, final Map<String,Object> properties);
+    Node getOrCreateNode(String indexName, String key, Object value, final Map<String, Object> properties, Collection<String> labels);
 
     /**
      * @param id relationship id
@@ -106,12 +107,12 @@ public interface GraphDatabase {
     /**
      * returns a query engine for the provided type (Cypher) which is initialized with the default result converter
      */
-    <T> QueryEngine<T> queryEngineFor(QueryType type);
+    CypherQueryEngine queryEngine();
 
     /**
      * returns a query engine for the provided type (Cypher) which is initialized with the provided result converter
      */
-    <T> QueryEngine<T> queryEngineFor(QueryType type, ResultConverter resultConverter);
+    CypherQueryEngine queryEngine(ResultConverter resultConverter);
 
     /**
      * @param conversionService the conversion service to be used for the default result converter of this database
@@ -133,4 +134,6 @@ public interface GraphDatabase {
     Transaction beginTx();
 
     void shutdown();
+
+    Collection<String> getAllLabelNames();
 }

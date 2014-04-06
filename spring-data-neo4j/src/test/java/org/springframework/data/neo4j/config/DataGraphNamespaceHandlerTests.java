@@ -28,13 +28,13 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.converter.GenericConverter;
+import org.springframework.data.neo4j.config.model.TestEntity;
 import org.springframework.data.neo4j.model.PersonRepository;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
 import org.springframework.data.neo4j.support.mapping.Neo4jMappingContext;
 import org.springframework.data.neo4j.support.mapping.Neo4jPersistentEntityImpl;
 import org.springframework.transaction.PlatformTransactionManager;
 
-import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
@@ -82,15 +82,15 @@ public class DataGraphNamespaceHandlerTests {
         final Config config = assertInjected("-external-embedded");
         final GraphDatabaseAPI gds = (GraphDatabaseAPI) config.graphDatabaseService;
         assertEquals(EmbeddedGraphDatabase.class, gds.getClass());
-        final org.neo4j.kernel.configuration.Config neoConfig = gds.getKernelData().getConfig();
+        final org.neo4j.kernel.configuration.Config neoConfig = gds.getDependencyResolver().resolveDependency(org.neo4j.kernel.configuration.Config.class);
         assertEquals("true", neoConfig.getParams().get("allow_store_upgrade"));
     }
     @Test
     @Ignore("todo setup zk-cluster")
     public void injectionForExistingHighlyAvailableGraphDatabaseService() {
         final Config config = assertInjected("-external-ha");
-        final AbstractGraphDatabase gds = (AbstractGraphDatabase) config.graphDatabaseService;
-        final org.neo4j.kernel.configuration.Config neoConfig = gds.getKernelData().getConfig();
+        final GraphDatabaseAPI gds = (GraphDatabaseAPI) config.graphDatabaseService;
+        final org.neo4j.kernel.configuration.Config neoConfig = gds.getDependencyResolver().resolveDependency(org.neo4j.kernel.configuration.Config.class);
         assertEquals("HighlyAvailableGraphDatabase", gds.getClass().getSimpleName());
         assertEquals("1", neoConfig.getParams().get("ha.server_id"));
     }

@@ -23,7 +23,6 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.traversal.Evaluators;
 import org.neo4j.graphdb.traversal.TraversalDescription;
 import org.neo4j.kernel.Traversal;
-import org.neo4j.kernel.impl.traversal.TraversalDescriptionImpl;
 import org.springframework.data.neo4j.annotation.*;
 import org.springframework.data.neo4j.core.FieldTraversalDescriptionBuilder;
 import org.springframework.data.neo4j.mapping.Neo4jPersistentProperty;
@@ -55,11 +54,11 @@ public class Group {
     private Iterable<Relationship> peopleRelationships;
 
     @GraphProperty
-    @Indexed
+    @Indexed(indexType = IndexType.SIMPLE)
     private String name;
 
     @GraphProperty
-    @Indexed
+    @Indexed(indexType = IndexType.SIMPLE)
     private Boolean admin;
 
     @Query("start n=node({self}) match n-[:persons]->() return count(*)")
@@ -77,20 +76,20 @@ public class Group {
     @Indexed(indexName = SEARCH_GROUPS_INDEX, indexType = IndexType.FULLTEXT)
     private String fullTextName;
 
-    @Indexed(fieldName = OTHER_NAME_INDEX)
+    @Indexed(fieldName = OTHER_NAME_INDEX,indexType = IndexType.SIMPLE)
     private String otherName;
 
-    @Indexed(level=Indexed.Level.GLOBAL)
+    @Indexed(level=Indexed.Level.GLOBAL,indexType = IndexType.SIMPLE)
     private String globalName;
 
-    @Indexed(level=Indexed.Level.CLASS)
+    @Indexed(level=Indexed.Level.CLASS,indexType = IndexType.SIMPLE)
     private String classLevelName;
 
-    @Indexed(level=Indexed.Level.INSTANCE)
+    @Indexed(level=Indexed.Level.INSTANCE,indexType = IndexType.SIMPLE)
     private String indexLevelName;
     private String[] roleNames;
 
-    @Indexed(numeric = false)
+    @Indexed(indexType = IndexType.SIMPLE, numeric = false)
     private Byte secret;
 
     public Date getCreationDate() {
@@ -183,7 +182,7 @@ public class Group {
     private static class PeopleTraversalBuilder implements FieldTraversalDescriptionBuilder {
         @Override
         public TraversalDescription build(Object start, Neo4jPersistentProperty property, String...params) {
-            return new TraversalDescriptionImpl()
+            return Traversal.description()
                     .relationships(DynamicRelationshipType.withName(params[0]))
                     .evaluator(Evaluators.excludeStartPosition());
 

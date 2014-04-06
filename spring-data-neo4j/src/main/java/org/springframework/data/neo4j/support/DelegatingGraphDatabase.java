@@ -26,26 +26,27 @@ import org.neo4j.index.lucene.ValueContext;
 import org.neo4j.kernel.GraphDatabaseAPI;
 import org.neo4j.kernel.Traversal;
 import org.neo4j.kernel.impl.transaction.SpringTransactionManager;
+import org.neo4j.tooling.GlobalGraphOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.data.neo4j.annotation.QueryType;
 import org.springframework.data.neo4j.conversion.DefaultConverter;
-import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.data.neo4j.conversion.ResultConverter;
 import org.springframework.data.neo4j.core.GraphDatabase;
 import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.neo4j.support.index.NoSuchIndexException;
 import org.springframework.data.neo4j.support.query.ConversionServiceQueryResultConverter;
 import org.springframework.data.neo4j.support.query.CypherQueryEngine;
-import org.springframework.data.neo4j.support.query.QueryEngine;
-import org.springframework.util.ClassUtils;
+import org.springframework.data.neo4j.support.query.CypherQueryEngineImpl;
+import org.springframework.data.neo4j.support.schema.SchemaIndexProvider;
 import org.springframework.util.ObjectUtils;
 
 import javax.transaction.Status;
 import javax.transaction.SystemException;
 import javax.transaction.TransactionManager;
-import java.util.Map;
+import java.util.*;
+
+import static org.neo4j.helpers.collection.MapUtil.map;
 
 /**
  * @author mh
@@ -54,11 +55,13 @@ import java.util.Map;
 public class DelegatingGraphDatabase implements GraphDatabase {
 
     private static final Logger log = LoggerFactory.getLogger(DelegatingGraphDatabase.class);
+    private static final Label[] NO_LABELS = new Label[0];
+    private final SchemaIndexProvider schemaIndexProvider;
 
     protected GraphDatabaseService delegate;
     private ConversionService conversionService;
     private ResultConverter resultConverter;
-    private volatile QueryEngine<Object> cypherQueryEngine;
+    private volatile CypherQueryEngineImpl cypherQueryEngine;
 
     public DelegatingGraphDatabase(final GraphDatabaseService delegate) {
         this(delegate,null);
@@ -66,6 +69,7 @@ public class DelegatingGraphDatabase implements GraphDatabase {
     public DelegatingGraphDatabase(final GraphDatabaseService delegate, ResultConverter resultConverter) {
         this.delegate = delegate;
         this.resultConverter = resultConverter;
+        this.schemaIndexProvider = new SchemaIndexProvider(this);
     }
 
     public void setConversionService(ConversionService conversionService) {
@@ -75,20 +79,7 @@ public class DelegatingGraphDatabase implements GraphDatabase {
     @Override
     public void setResultConverter(ResultConverter resultConverter) {
         this.resultConverter = resultConverter;
-
-        // At present, the current config may result in the scenario where
-        // the query engine was requested very early on in the lifecycle
-        // (for Type Representation Strategy) and at that stage, only the
-        // default ResultConverter was available, and thus used to create
-        // the query engines. (TODO - Try change ordering if possible)
-        //
-        // In this case we re-initialise it to ensure it uses this latest
-        // result Converter (as it is currently cached)
-        reinitQueryEngines();
-    }
-
-    private void reinitQueryEngines() {
-        if (cypherQueryEngine != null) this.cypherQueryEngine = queryEngineFor(QueryType.Cypher, resultConverter, true);
+        if (cypherQueryEngine != null) this.cypherQueryEngine.setResultConverter(this.resultConverter);
     }
 
     @Override
@@ -97,8 +88,18 @@ public class DelegatingGraphDatabase implements GraphDatabase {
     }
 
     @Override
-    public Node createNode(Map<String, Object> props) {
-        return setProperties(delegate.createNode(), props);
+    public Node createNode(Map<String, Object> props, Collection<String> labels) {
+        return setProperties(delegate.createNode(toLabels(labels)), props);
+    }
+
+    private Label[] toLabels(Collection<String> labels) {
+        if (labels==null || labels.isEmpty()) return NO_LABELS;
+        Label[] labelArray = new Label[labels.size()];
+        int i=0;
+        for (String label : labels) {
+            labelArray[i++]= DynamicLabel.label(label);
+        }
+        return labelArray;
     }
 
     private <T extends PropertyContainer> T setProperties(T primitive, Map<String, Object> properties) {
@@ -167,7 +168,7 @@ public class DelegatingGraphDatabase implements GraphDatabase {
                 return (Index<T>) indexManager.forRelationships(indexName, indexConfigFor(indexType));
             }
         } finally {
-            tx.success();tx.finish();
+            tx.success();tx.close();
         }
     }
 
@@ -196,35 +197,26 @@ public class DelegatingGraphDatabase implements GraphDatabase {
         return Traversal.description();
     }
 
-    // todo create query engines only once
-    public <T> QueryEngine<T> queryEngineFor(QueryType type) {
-        return queryEngineFor(type,createResultConverter());
+    public CypherQueryEngine queryEngine() {
+        return queryEngine(createResultConverter());
     }
 
     @SuppressWarnings("unchecked")
-    private <T> QueryEngine<T> queryEngineFor(QueryType type,ResultConverter resultConverter,boolean reinit) {
-        switch (type) {
-            case Cypher:  {
-                if (reinit || cypherQueryEngine==null)
-                    synchronized (this) {
-                        if (reinit || cypherQueryEngine==null) cypherQueryEngine = createCypherQueryEngine(resultConverter);
-                    }
-                return (QueryEngine<T>) cypherQueryEngine;
+    private CypherQueryEngineImpl queryEngine(ResultConverter resultConverter, boolean reinit) {
+        if (reinit || cypherQueryEngine==null)
+            synchronized (this) {
+                if (reinit || cypherQueryEngine==null) cypherQueryEngine = createCypherQueryEngine(resultConverter);
             }
-        }
-        throw new IllegalArgumentException("Unknown Query Engine Type "+type);
+        return cypherQueryEngine;
     }
 
     @SuppressWarnings("unchecked")
-    public <T> QueryEngine<T> queryEngineFor(QueryType type,ResultConverter resultConverter) {
-        return queryEngineFor(type,resultConverter,false);
+    public CypherQueryEngineImpl queryEngine(ResultConverter resultConverter) {
+        return queryEngine(resultConverter, false);
     }
 
-    private <T> QueryEngine<T> createCypherQueryEngine(ResultConverter resultConverter) {
-        if (!ClassUtils.isPresent("org.neo4j.cypher.javacompat.ExecutionEngine", getClass().getClassLoader())) {
-            return new FailingQueryEngine<T>("Cypher");
-        }
-        return (QueryEngine<T>)new CypherQueryEngine(delegate, resultConverter);
+    private CypherQueryEngineImpl createCypherQueryEngine(ResultConverter resultConverter) {
+        return new CypherQueryEngineImpl(delegate, resultConverter);
     }
 
     @Override
@@ -233,7 +225,7 @@ public class DelegatingGraphDatabase implements GraphDatabase {
             return true; // assume always running tx (e.g. for REST or other remotes)
         }
         try {
-            final TransactionManager txManager = ((GraphDatabaseAPI) delegate).getTxManager();
+            final TransactionManager txManager = ((GraphDatabaseAPI) delegate).getDependencyResolver().resolveDependency(TransactionManager.class);
             return txManager.getStatus() != Status.STATUS_NO_TRANSACTION;
         } catch (SystemException e) {
             log.error("Error accessing TransactionManager", e);
@@ -279,36 +271,40 @@ public class DelegatingGraphDatabase implements GraphDatabase {
     }
 
     @Override
-    public Node getReferenceNode() {
-        return delegate.getReferenceNode();
+    public Collection<String> getAllLabelNames() {
+        Set<String> labels=new HashSet<>();
+        for (Label label : GlobalGraphOperations.at(delegate).getAllLabels()) {
+            labels.add(label.name());
+        }
+        return labels;
     }
 
     public GraphDatabaseService getGraphDatabaseService() {
         return delegate;
     }
 
-    private static class FailingQueryEngine<T> implements QueryEngine<T> {
-        private String dependency;
-
-        private FailingQueryEngine(final String dependency) {
-            this.dependency = dependency;
-        }
-
-        @Override
-        public Result<T> query(String statement, Map<String, Object> params) {
-            throw new IllegalStateException(dependency + " is not available, please add it to your dependencies to execute: " +statement);
-        }
+    public Node merge(String labelName, String key, Object value, final Map<String, Object> nodeProperties, Collection<String> labels) {
+        return schemaIndexProvider.merge(labelName,key,value,nodeProperties,labels);
     }
 
-    public Node getOrCreateNode(String indexName, String key, Object value, final Map<String,Object> nodeProperties) {
+    public Node getOrCreateNode(String indexName, String key, Object value, final Map<String, Object> nodeProperties, final Collection<String> labels) {
         if (indexName ==null || key == null || value==null) throw new IllegalArgumentException("Unique index "+ indexName +" key "+key+" value must not be null");
         if (value instanceof Number) value= ValueContext.numeric((Number)value);
         UniqueFactory.UniqueNodeFactory factory = new UniqueFactory.UniqueNodeFactory(delegate, indexName) {
             protected void initialize(Node node, Map<String, Object> _) {
                 setProperties(node,nodeProperties);
+                setLabels(node,labels);
             }
         };
         return factory.getOrCreate(key, value);
+    }
+
+    private Node setLabels(Node node, Collection<String> labels) {
+        if (labels==null || labels.isEmpty()) return node;
+        for (String label : labels) {
+            node.addLabel(DynamicLabel.label(label));
+        }
+        return node;
     }
 
     @Override

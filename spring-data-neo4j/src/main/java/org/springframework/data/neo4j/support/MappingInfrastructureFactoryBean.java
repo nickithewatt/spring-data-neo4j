@@ -22,7 +22,6 @@ import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.data.mapping.context.MappingContextIsNewStrategyFactory;
-import org.springframework.data.neo4j.annotation.QueryType;
 import org.springframework.data.neo4j.conversion.ResultConverter;
 import org.springframework.data.neo4j.core.GraphDatabase;
 import org.springframework.data.neo4j.core.TypeRepresentationStrategy;
@@ -44,6 +43,7 @@ import org.springframework.data.neo4j.support.node.NodeEntityStateFactory;
 import org.springframework.data.neo4j.support.query.CypherQueryExecutor;
 import org.springframework.data.neo4j.support.relationship.RelationshipEntityInstantiator;
 import org.springframework.data.neo4j.support.relationship.RelationshipEntityStateFactory;
+import org.springframework.data.neo4j.support.schema.SchemaIndexProvider;
 import org.springframework.data.neo4j.support.typerepresentation.TypeRepresentationStrategies;
 import org.springframework.data.neo4j.support.typerepresentation.TypeRepresentationStrategyFactory;
 import org.springframework.data.neo4j.support.typesafety.TypeSafetyPolicy;
@@ -77,6 +77,7 @@ public class MappingInfrastructureFactoryBean implements FactoryBean<Infrastruct
     private PlatformTransactionManager transactionManager;
     private ResultConverter resultConverter;
     private IndexProvider indexProvider;
+    private SchemaIndexProvider schemaIndexProvider;
     private GraphDatabaseService graphDatabaseService;
     private GraphDatabase graphDatabase;
     private IsNewStrategyFactory isNewStrategyFactory;
@@ -100,7 +101,9 @@ public class MappingInfrastructureFactoryBean implements FactoryBean<Infrastruct
     @Override
     public void afterPropertiesSet() {
         try {
-        if (this.mappingContext == null) this.mappingContext = new Neo4jMappingContext();
+        if (this.mappingContext == null) {
+            this.mappingContext = new Neo4jMappingContext();
+        }
         if (this.isNewStrategyFactory == null) {
             this.isNewStrategyFactory = new MappingContextIsNewStrategyFactory(mappingContext); 
         }
@@ -154,14 +157,17 @@ public class MappingInfrastructureFactoryBean implements FactoryBean<Infrastruct
             this.resultConverter = new EntityResultConverter<Object, Object>(conversionService);
         }
         this.graphDatabase.setResultConverter(resultConverter);
-        this.cypherQueryExecutor = new CypherQueryExecutor(graphDatabase.queryEngineFor(QueryType.Cypher, resultConverter));
+        this.cypherQueryExecutor = new CypherQueryExecutor(graphDatabase.queryEngine(resultConverter));
+        if (schemaIndexProvider == null) {
+            schemaIndexProvider = new SchemaIndexProvider(graphDatabase);
+        }
         if (this.indexProvider == null) {
             this.indexProvider = new IndexProviderImpl(graphDatabase);
         }
         if (this.typeSafetyPolicy == null) {
             this.typeSafetyPolicy = new TypeSafetyPolicy();
         }
-        this.mappingInfrastructure = new MappingInfrastructure(graphDatabase, graphDatabaseService, indexProvider, resultConverter, transactionManager, typeRepresentationStrategies, entityRemover, entityPersister, entityStateHandler, cypherQueryExecutor, mappingContext, relationshipTypeRepresentationStrategy, nodeTypeRepresentationStrategy, validator, conversionService, typeSafetyPolicy);
+        this.mappingInfrastructure = new MappingInfrastructure(graphDatabase, graphDatabaseService, indexProvider, resultConverter, transactionManager, typeRepresentationStrategies, entityRemover, entityPersister, entityStateHandler, cypherQueryExecutor, mappingContext, relationshipTypeRepresentationStrategy, nodeTypeRepresentationStrategy, validator, conversionService, schemaIndexProvider, typeSafetyPolicy);
         } catch (Exception e) {
             throw new RuntimeException("error initializing "+getClass().getName(),e);
         }

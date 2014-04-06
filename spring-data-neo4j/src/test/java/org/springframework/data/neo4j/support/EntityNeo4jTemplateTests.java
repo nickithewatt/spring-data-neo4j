@@ -16,6 +16,7 @@
 package org.springframework.data.neo4j.support;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import org.junit.runner.RunWith;
@@ -26,11 +27,9 @@ import org.neo4j.graphdb.traversal.Evaluators;
 import org.neo4j.graphdb.traversal.TraversalDescription;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.neo4j.helpers.collection.MapUtil;
-import org.neo4j.kernel.Traversal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataRetrievalFailureException;
-import org.springframework.data.neo4j.annotation.QueryType;
-import org.springframework.data.neo4j.conversion.EndResult;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.data.neo4j.mapping.ManagedEntity;
 import org.springframework.data.neo4j.model.Friendship;
@@ -38,7 +37,7 @@ import org.springframework.data.neo4j.model.Group;
 import org.springframework.data.neo4j.model.Named;
 import org.springframework.data.neo4j.model.Person;
 import org.springframework.data.neo4j.repository.GraphRepository;
-import org.springframework.data.neo4j.support.query.QueryEngine;
+import org.springframework.data.neo4j.support.query.CypherQueryEngine;
 import org.springframework.data.neo4j.template.Neo4jOperations;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -46,7 +45,6 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionCallback;
-import org.springframework.transaction.support.TransactionCallbackWithoutResult;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
@@ -96,7 +94,7 @@ public class EntityNeo4jTemplateTests extends EntityTestBase {
         assertEquals(found.getId(),testTeam.friendShip.getId());
     }
 
-    @Test @Transactional
+    @Test @Transactional @Ignore
     public void testGetIndexForType() throws Exception {
         
         final Index<PropertyContainer> personIndex = template.getIndex(Person.class);
@@ -117,7 +115,7 @@ public class EntityNeo4jTemplateTests extends EntityTestBase {
         assertEquals(Person.NAME_INDEX,nameIndex.getName());
     }
 
-    @Test @Transactional
+    @Test @Transactional @Ignore
     public void testGetIndexForTypeAndNoName() throws Exception {
         
         final Index<PropertyContainer> nameIndex = neo4jOperations.getIndex(null,Person.class);
@@ -361,13 +359,13 @@ public class EntityNeo4jTemplateTests extends EntityTestBase {
 
     @Test @Transactional
     public void testConvert() throws Exception {
-        final EndResult<Group> groups = neo4jOperations.convert(Arrays.asList(getNodeState(testTeam.sdg))).to(Group.class);
+        final Result<Group> groups = neo4jOperations.convert(Arrays.asList(getNodeState(testTeam.sdg))).to(Group.class);
         assertEquals(testTeam.sdg.getName(),groups.iterator().next().getName());
     }
 
     @Test @Transactional
     public void testQueryEngineForCypher() throws Exception {
-        final QueryEngine<Result<Map<String,Object>>> engine = neo4jOperations.queryEngineFor(QueryType.Cypher);
+        final CypherQueryEngine engine = neo4jOperations.queryEngineFor();
         final Person result = engine.query("start n=node({self}) return n", map("self", testTeam.michael.getId())).to(Person.class).single();
         assertEquals(testTeam.michael.getId(), result.getId());
     }
@@ -385,9 +383,24 @@ public class EntityNeo4jTemplateTests extends EntityTestBase {
         final Person found = neo4jOperations.lookup(Person.class, "name","name:Michael").to(Person.class).single();
         assertEquals(testTeam.michael.getId(),found.getId());
     }
+
     @Test @Transactional
     public void testLookupExact() throws Exception {
         final Person found = neo4jOperations.lookup(Person.class, "name","Michael").to(Person.class).single();
+        assertEquals(testTeam.michael.getId(),found.getId());
+    }
+
+    @Test(expected = InvalidDataAccessApiUsageException.class)
+    @Transactional
+    public void testLookupExactLabelIndex() throws Exception {
+        final Person found = neo4jOperations.lookup(Person.class, "alias","michaelAlias").to(Person.class).single();
+        assertEquals(testTeam.michael.getId(),found.getId());
+    }
+
+    @Test
+    @Transactional
+    public void testFindAllSchemaIndex() throws Exception {
+        final Person found = neo4jOperations.findByIndexedValue(Person.class, "alias", "michaelAlias").single();
         assertEquals(testTeam.michael.getId(),found.getId());
     }
 }

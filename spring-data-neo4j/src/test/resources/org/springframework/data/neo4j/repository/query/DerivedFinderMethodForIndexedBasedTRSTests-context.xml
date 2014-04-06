@@ -9,11 +9,11 @@
     <context:annotation-config/>
 
     <bean id="typeRepresentationStrategyFactory" class="org.springframework.data.neo4j.support.typerepresentation.TypeRepresentationStrategyFactory">
-        <constructor-arg index="0" ref="graphDatabase"/>
-        <constructor-arg index="1" value="Indexed"/>
+        <constructor-arg ref="graphDatabase"/>
+        <constructor-arg value="Indexed"/>
     </bean>
 
-    <neo4j:config graphDatabaseService="graphDatabaseService"/>
+    <neo4j:config graphDatabaseService="graphDatabaseService" base-package="org.springframework.data.neo4j.model,org.springframework.data.neo4j.repository.query"/>
     <neo4j:repositories base-package="org.springframework.data.neo4j.repository.query"/>
     <bean id="graphDatabaseService" class="org.neo4j.test.ImpermanentGraphDatabase" destroy-method="shutdown"/>
 </beans>

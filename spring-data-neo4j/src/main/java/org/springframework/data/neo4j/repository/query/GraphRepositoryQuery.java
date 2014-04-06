@@ -20,9 +20,11 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.neo4j.conversion.EndResult;
+import org.springframework.data.domain.SliceImpl;
+import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.data.neo4j.core.GraphDatabase;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
+import org.springframework.data.neo4j.support.query.CypherQueryEngine;
 import org.springframework.data.neo4j.support.query.QueryEngine;
 import org.springframework.data.neo4j.template.GraphCallback;
 import org.springframework.data.repository.query.Parameter;
@@ -101,13 +103,13 @@ abstract class GraphRepositoryQuery implements RepositoryQuery, ParameterResolve
         GraphQueryMethod queryMethod = getQueryMethod();
         final QueryEngine<?> queryEngine = getQueryEngine();
         final Class<?> compoundType = queryMethod.getCompoundType();
-        if (queryMethod.isPageQuery()) {
+        if (queryMethod.isPageQuery() || queryMethod.isSliceQuery()) {
             @SuppressWarnings("unchecked") final Iterable<?> result = queryEngine.query(queryString, params).to(compoundType);
             Long count = computeCount(params);
-            return createPage(result, accessor.getPageable(),count);
+            return createPage(result, accessor.getPageable(),count, queryMethod.isPageQuery());
         }
         if (queryMethod.isIterableResult()) {
-            final EndResult<?> result = queryEngine.query(queryString, params).to(compoundType);
+            final Result<?> result = queryEngine.query(queryString, params).to(compoundType);
             if (queryMethod.isSetResult()) return IteratorUtil.addToCollection(result,new LinkedHashSet());
             if (queryMethod.isCollectionResult()) return IteratorUtil.addToCollection(result,new ArrayList());
             return result;
@@ -128,22 +130,29 @@ abstract class GraphRepositoryQuery implements RepositoryQuery, ParameterResolve
 
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    protected Object createPage(Iterable<?> result, Pageable pageable, Long count) {
+    protected Object createPage(Iterable<?> result, Pageable pageable, Long count, boolean isPageQuery) {
         final List resultList = IteratorUtil.addToCollection(result, new ArrayList());
         if (pageable==null) {
-            return new PageImpl(resultList);
+            return isPageQuery ? new PageImpl(resultList) : new SliceImpl(resultList);
         }
-        long currentTotal;
+        int pageSize = pageable.getPageSize();
+        int requestedCountStart = pageable.getOffset();
+        int resultSize = resultList.size();
+        int currentTotal;
         if (count!=null) {
-            currentTotal = count;
+            currentTotal = count.intValue();
         } else {
-            int pageSize = pageable.getPageSize();
-            long requestedCountStart = pageable.getOffset() * pageSize;
-            long resultSize = resultList.size();
-            currentTotal = resultSize == pageSize ? requestedCountStart + pageSize : requestedCountStart+resultSize;
+            if (resultSize == pageSize) currentTotal = requestedCountStart + pageSize;
+            else currentTotal = requestedCountStart + resultSize;
         }
-        return new PageImpl(resultList, pageable, currentTotal);
+        int resultWindowSize = Math.min(resultSize, pageSize);
+        boolean hasNext = resultWindowSize < resultSize;
+        List resultListPage = resultList.subList(0, resultWindowSize);
+
+        return isPageQuery ?
+                new PageImpl(resultListPage, pageable, currentTotal) :
+                new SliceImpl(resultListPage,pageable, hasNext);
     }
 
-    protected abstract QueryEngine<?> getQueryEngine();
+    protected abstract CypherQueryEngine getQueryEngine();
 }

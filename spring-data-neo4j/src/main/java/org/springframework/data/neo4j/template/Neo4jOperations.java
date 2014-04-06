@@ -23,15 +23,14 @@ import org.neo4j.graphdb.PropertyContainer;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.traversal.TraversalDescription;
-import org.springframework.data.neo4j.annotation.QueryType;
-import org.springframework.data.neo4j.conversion.EndResult;
 import org.springframework.data.neo4j.conversion.Result;
 import org.springframework.data.neo4j.conversion.ResultConverter;
 import org.springframework.data.neo4j.core.GraphDatabase;
 import org.springframework.data.neo4j.mapping.MappingPolicy;
 import org.springframework.data.neo4j.repository.GraphRepository;
-import org.springframework.data.neo4j.support.query.QueryEngine;
+import org.springframework.data.neo4j.support.query.CypherQueryEngine;
 
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -56,11 +55,6 @@ public interface Neo4jOperations {
     <T> GraphRepository<T> repositoryFor(Class<T> clazz);
 
     /**
-     * Returns the reference node.
-     */
-    Node getReferenceNode();
-
-    /**
      * Delegates to the GraphDatabase
      *
      * @param id node id
@@ -75,13 +69,24 @@ public interface Neo4jOperations {
      */
     Node createNode(Map<String, Object> properties);
 
+    /**
+     * Creates a node with the given properties and labels
+     */
+    Node createNode(final Map<String, Object> properties,Collection<String> labels);
+
     Node createNode();
 
     /**
      * creates the node uniquely or returns an existing node with the same index-key-value combination.
      * properties are used to initialize the node.
      */
-    Node getOrCreateNode(String index, String key, Object value, Map<String, Object> properties);
+    Node getOrCreateNode(String index, String key, Object value, Map<String, Object> properties, Collection<String> labels);
+
+    /**
+     * creates the node uniquely or returns an existing node with the same label-key-value combination.
+     * properties are used to initialize the node.
+     */
+    Node merge(String label, String key, Object value, Map<String, Object> properties, Collection<String> labels);
 
     /**
      * Creates a node mapped by the given entity class
@@ -141,6 +146,8 @@ public interface Neo4jOperations {
     <R> R createRelationshipBetween(Object start, Object end, Class<R> relationshipEntityClass, String relationshipType, boolean allowDuplicates);
 
 
+    <T> Result<T> findByIndexedValue(Class<? extends T> indexedType, String propertyName, Object value);
+
     /**
      * Retrieves an existing index for the given class and/or name
      * @param indexName might be null
@@ -191,7 +198,7 @@ public interface Neo4jOperations {
     /**
      * Provides a cypher query engine set up with a default entity converter.
      */
-    <T> QueryEngine<T> queryEngineFor(QueryType type);
+    <T> CypherQueryEngine queryEngineFor();
 
     /**
      * Runs the given cypher statement and packages the result in a Result, simple conversions via the
@@ -233,7 +240,7 @@ public interface Neo4jOperations {
      * Provides all instances of a given entity type using the typerepresentation strategy configured for this template.
      * This method is also provided by the appropriate repository.
      */
-    <T> EndResult<T> findAll(Class<T> entityClass);
+    <T> Result<T> findAll(Class<T> entityClass);
 
     /**
      * Provies the instance count a given entity type using the typerepresentation strategy configured for this template.

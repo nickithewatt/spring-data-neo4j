@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Defines the tests for the various finder method based scenarios with
@@ -57,12 +58,15 @@ public abstract class AbstractDerivedFinderMethodTestBase {
     public static class Thing {
         @GraphId
         Long id;
-        @Indexed
+        @Indexed(indexType = IndexType.SIMPLE)
         String firstName;
-    	@Indexed
+    	@Indexed(numeric = true,indexType = IndexType.SIMPLE)
     	int number;
-        @Indexed
+        @Indexed(indexType = IndexType.SIMPLE)
         String lastName;
+
+        @Indexed(indexType = IndexType.LABEL)
+        String alias;
 
         String name;
         boolean tagged;
@@ -84,6 +88,7 @@ public abstract class AbstractDerivedFinderMethodTestBase {
         }
     }
 
+    protected final static String THING_NAME = Thing.class.getSimpleName();
     @Autowired
     ThingRepository repository;
     @Autowired
@@ -145,6 +150,15 @@ public abstract class AbstractDerivedFinderMethodTestBase {
     public void testIndexQueryWithOneParam() throws Exception {
         assertRepositoryQueryMethod(ThingRepository.class,
                 "findByFirstName",
+                new Object[]{"foo"},
+                getExpectedQuery("subclass-to-supply-trs-specific-query"),
+                getExpectedParams("foo"));
+    }
+
+    @Test
+    public void testSchemaIndexQueryWithOneParam() throws Exception {
+        assertRepositoryQueryMethod(ThingRepository.class,
+                "findByAlias",
                 new Object[]{"foo"},
                 getExpectedQuery("subclass-to-supply-trs-specific-query"),
                 getExpectedParams("foo"));
@@ -391,7 +405,7 @@ public abstract class AbstractDerivedFinderMethodTestBase {
      * This method will either return the trs specific query string if
      * this was set, otherwise the default value passed in.
      */
-    private String getExpectedQuery(String defaultQueryString) {
+    protected String getExpectedQuery(String defaultQueryString) {
         return (this.trsSpecificExpectedQuery != null)
                 ? this.trsSpecificExpectedQuery
                 : defaultQueryString;
@@ -404,7 +418,7 @@ public abstract class AbstractDerivedFinderMethodTestBase {
      * This method will either return the trs specific query params if
      * this was set, otherwise the default value passed in.
      */
-    private Object[] getExpectedParams(Object... defaultVals) {
+    protected Object[] getExpectedParams(Object... defaultVals) {
         return (this.trsSpecificExpectedParams != null)
                 ? this.trsSpecificExpectedParams
                 : (defaultVals == null) ? new Object[0] : defaultVals;
@@ -418,7 +432,11 @@ public abstract class AbstractDerivedFinderMethodTestBase {
         String query = derivedCypherRepositoryQuery.createQueryWithPagingAndSorting(accessor);
         Map<String, Object> params = derivedCypherRepositoryQuery.resolveParams(accessor);
         String firstWord = expectedQuery.split("\\s+")[0];
-        assertEquals(expectedQuery,query.substring(query.indexOf(firstWord)).substring(0,expectedQuery.length()));
+        int beginIndex = query.indexOf(firstWord);
+        assertTrue("didn't find word "+firstWord+" in "+query,beginIndex != -1);
+        String actual = query.substring(beginIndex);
+        actual = actual.substring(0, Math.min(expectedQuery.length(),actual.length()));
+        assertEquals(expectedQuery, actual);
         assertEquals(expectedParam.length,params.size());
         for (int i = 0; i < expectedParam.length; i++) {
             if (expectedParam[i] instanceof ValueContext) {

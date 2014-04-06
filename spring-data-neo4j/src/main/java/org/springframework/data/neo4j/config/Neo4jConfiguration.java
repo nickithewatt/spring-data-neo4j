@@ -21,6 +21,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationContextException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
@@ -42,18 +43,12 @@ import org.springframework.data.neo4j.support.Neo4jExceptionTranslator;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
 import org.springframework.data.neo4j.support.index.IndexProvider;
 import org.springframework.data.neo4j.support.index.IndexProviderImpl;
-import org.springframework.data.neo4j.support.mapping.ClassNameAlias;
-import org.springframework.data.neo4j.support.mapping.EntityAlias;
-import org.springframework.data.neo4j.support.mapping.EntityStateHandler;
-import org.springframework.data.neo4j.support.mapping.IndexCreationMappingEventListener;
-import org.springframework.data.neo4j.support.mapping.Neo4jEntityFetchHandler;
-import org.springframework.data.neo4j.support.mapping.Neo4jMappingContext;
-import org.springframework.data.neo4j.support.mapping.SourceStateTransmitter;
-import org.springframework.data.neo4j.support.mapping.TRSTypeAliasAccessor;
+import org.springframework.data.neo4j.support.mapping.*;
 import org.springframework.data.neo4j.support.node.NodeEntityInstantiator;
 import org.springframework.data.neo4j.support.node.NodeEntityStateFactory;
 import org.springframework.data.neo4j.support.relationship.RelationshipEntityInstantiator;
 import org.springframework.data.neo4j.support.relationship.RelationshipEntityStateFactory;
+import org.springframework.data.neo4j.support.schema.SchemaIndexProvider;
 import org.springframework.data.neo4j.support.typerepresentation.ClassValueTypeInformationMapper;
 import org.springframework.data.neo4j.support.typerepresentation.TypeRepresentationStrategyFactory;
 import org.springframework.data.neo4j.support.typesafety.TypeSafetyPolicy;
@@ -61,6 +56,7 @@ import org.springframework.data.support.IsNewStrategyFactory;
 import org.springframework.transaction.PlatformTransactionManager;
 import javax.validation.Validator;
 
+import java.util.Arrays;
 import java.util.Set;
 
 import static java.util.Arrays.asList;
@@ -209,12 +205,13 @@ public abstract class Neo4jConfiguration {
             mappingContext.setInitialEntitySet(initialEntitySet);
         }
         mappingContext.setEntityAlias(entityAlias());
+        mappingContext.setEntityIndexCreator(entityIndexCreator());
         return mappingContext;
     }
 
     @Bean
     protected EntityAlias entityAlias() {
-        return new ClassNameAlias();
+        return new EntityAlias();
     }
 
     @Bean
@@ -244,8 +241,12 @@ public abstract class Neo4jConfiguration {
 	}
 
     @Bean
-    public IndexCreationMappingEventListener indexCreationMappingEventListener() throws Exception {
-        return new IndexCreationMappingEventListener(indexProvider());
+    public EntityIndexCreator entityIndexCreator() throws Exception {
+        return new EntityIndexCreator(
+                indexProvider(),
+                schemaIndexProvider(),
+                nodeTypeRepresentationStrategy().isLabelBased()
+        );
     }
 
     @Bean
@@ -256,10 +257,10 @@ public abstract class Neo4jConfiguration {
         return new DelegatingGraphDatabase(graphDatabaseService);
     }
 
-    @Bean
-    public ConfigurationCheck configurationCheck() throws Exception {
-        return new ConfigurationCheck(neo4jTemplate(),neo4jTransactionManager());
-    }
+//    @Bean
+//    public ConfigurationCheck configurationCheck() throws Exception {
+//        return new ConfigurationCheck(neo4jTemplate(),neo4jTransactionManager());
+//    }
 
     @Bean
     public PersistenceExceptionTranslator persistenceExceptionTranslator() {
@@ -269,6 +270,11 @@ public abstract class Neo4jConfiguration {
     @Bean
     public IndexProvider indexProvider() throws Exception {
         return new IndexProviderImpl(graphDatabase());
+    }
+
+    @Bean
+    public SchemaIndexProvider schemaIndexProvider() throws Exception {
+        return new SchemaIndexProvider(graphDatabase());
     }
 
     @Bean
@@ -283,4 +289,20 @@ public abstract class Neo4jConfiguration {
     public void setInitialEntitySet(Set<? extends Class<?>> initialEntitySet) {
    		this.initialEntitySet = initialEntitySet;
    	}
+
+    private String[] basePackage;
+
+
+    public String[] getBasePackage() {
+        return basePackage;
+    }
+
+    public void setBasePackage(String...basePackage) {
+        try {
+            this.basePackage = basePackage;
+            setInitialEntitySet(BasePackageScanner.scanBasePackageForClasses(basePackage));
+        } catch(ClassNotFoundException cnfe) {
+            throw new ApplicationContextException("Error scanning packages for domain entities: "+ Arrays.toString(basePackage));
+        }
+    }
 }

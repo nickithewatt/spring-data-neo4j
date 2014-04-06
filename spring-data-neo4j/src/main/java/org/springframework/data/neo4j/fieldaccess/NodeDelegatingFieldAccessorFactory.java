@@ -39,7 +39,7 @@ public class NodeDelegatingFieldAccessorFactory extends DelegatingFieldAccessorF
                         template,
                 		new PropertyFieldAccessorFactory(template),
                 		new ConvertingNodePropertyFieldAccessorFactory(template)),
-                new ValidatingNodePropertyFieldAccessorListenerFactory(template)
+                new ValidatingPropertyFieldAccessorListenerFactory(template)
         );
     }
 
@@ -48,6 +48,7 @@ public class NodeDelegatingFieldAccessorFactory extends DelegatingFieldAccessorF
         return Arrays.<FieldAccessorFactory>asList(
                 new IdFieldAccessorFactory(template),
                 new TransientFieldAccessorFactory(),
+                new LabelFieldAccessorFactory(template),
                 new TraversalFieldAccessorFactory(template),
                 new QueryFieldAccessorFactory(template),
                 new PropertyFieldAccessorFactory(template),

@@ -22,31 +22,37 @@ import org.neo4j.rest.graphdb.RestAPIFacade;
 import org.neo4j.rest.graphdb.entity.RestNode;
 import org.neo4j.rest.graphdb.index.RestIndex;
 import org.neo4j.rest.graphdb.index.RestIndexManager;
-import org.neo4j.rest.graphdb.query.RestCypherQueryEngine;
 import org.neo4j.rest.graphdb.transaction.NullTransaction;
 import org.neo4j.rest.graphdb.transaction.NullTransactionManager;
 import org.neo4j.rest.graphdb.util.Config;
 import org.springframework.core.convert.ConversionService;
-import org.springframework.data.neo4j.annotation.QueryType;
 import org.springframework.data.neo4j.conversion.DefaultConverter;
 import org.springframework.data.neo4j.conversion.ResultConverter;
 import org.springframework.data.neo4j.core.GraphDatabase;
 import org.springframework.data.neo4j.support.index.NoSuchIndexException;
 import org.springframework.data.neo4j.support.query.ConversionServiceQueryResultConverter;
-import org.springframework.data.neo4j.support.query.QueryEngine;
+import org.springframework.data.neo4j.support.query.CypherQueryEngine;
+import org.springframework.data.neo4j.support.schema.SchemaIndexProvider;
 
 import javax.transaction.TransactionManager;
+import java.util.Collection;
 import java.util.Map;
 
-public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDatabase implements GraphDatabase{
+import static org.neo4j.helpers.collection.MapUtil.map;
+
+public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDatabase implements GraphDatabase {
     static {
         System.setProperty(Config.CONFIG_BATCH_TRANSACTION,"false");
     }
+
+    private static final String[] NO_LABELS = new String[0];
     private ConversionService conversionService;
     private ResultConverter resultConverter;
+    private SchemaIndexProvider schemaIndexProvider;
 
     public SpringRestGraphDatabase( RestAPI api){
     	super(api);
+        schemaIndexProvider = new SchemaIndexProvider(this);
     }
 
     public SpringRestGraphDatabase( String uri ) {
@@ -58,8 +64,18 @@ public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDat
     }
 
     @Override
-    public Node createNode(Map<String, Object> props) {
-        return super.getRestAPI().createNode(props);
+    public Node createNode(Map<String, Object> props, Collection<String> labels) {
+        RestAPI restAPI = super.getRestAPI();
+        RestNode node = restAPI.createNode(props);
+        if (labels!=null && !labels.isEmpty()) {
+            restAPI.addLabels(node, toLabels(labels));
+        }
+        return node;
+    }
+
+    private String[] toLabels(Collection<String> labels) {
+        if (labels==null || labels.isEmpty()) return NO_LABELS;
+        return labels.toArray(new String[labels.size()]);
     }
 
     @Override
@@ -74,10 +90,17 @@ public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDat
     }
 
     @Override
-    public Node getOrCreateNode(String indexName, String key, Object value, final Map<String,Object> properties) {
+    public Node getOrCreateNode(String indexName, String key, Object value, final Map<String, Object> properties, Collection<String> labels) {
         if (indexName ==null || key == null || value==null) throw new IllegalArgumentException("Unique index "+ indexName +" key "+key+" value must not be null");
         final RestIndex<Node> nodeIndex = index().forNodes(indexName);
-        return getRestAPI().getOrCreateNode(nodeIndex, key, value, properties);
+        RestNode node = getRestAPI().getOrCreateNode(nodeIndex, key, value, properties);
+        getRestAPI().addLabels(node,toLabels(labels));
+        return node;
+    }
+
+    @Override
+    public Node merge(String labelName, String key, Object value, final Map<String, Object> nodeProperties, Collection<String> labels) {
+        return schemaIndexProvider.merge(labelName,key,value,nodeProperties, labels);
     }
 
 
@@ -108,16 +131,13 @@ public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDat
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> QueryEngine<T> queryEngineFor(QueryType type, final ResultConverter resultConverter) {
-        switch (type) {
-             case Cypher: return (QueryEngine<T>)new SpringRestCypherQueryEngine(new RestCypherQueryEngine(getRestAPI(), new SpringResultConverter(resultConverter)));
-         }
-         throw new IllegalArgumentException("Unknown Query Engine Type "+type);
+    public CypherQueryEngine queryEngine(final ResultConverter resultConverter) {
+        return new SpringRestCypherQueryEngine(getRestAPI(),resultConverter);
     }
 
     @Override
-    public <T> QueryEngine<T> queryEngineFor(QueryType type) {
-        return queryEngineFor(type,createResultConverter());
+    public CypherQueryEngine queryEngine() {
+        return queryEngine(createResultConverter());
     }
 
     @Override
@@ -133,20 +153,6 @@ public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDat
             this.resultConverter = new DefaultConverter();
         }
         return resultConverter;
-    }
-
-    private static class SpringResultConverter implements org.neo4j.rest.graphdb.util.ResultConverter {
-        private final ResultConverter resultConverter;
-
-        public SpringResultConverter(ResultConverter resultConverter) {
-            this.resultConverter = resultConverter;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public Object convert(Object value, Class target) {
-            return resultConverter.convert(value,target);
-        }
     }
 
     @Override
@@ -189,5 +195,4 @@ public class SpringRestGraphDatabase extends org.neo4j.rest.graphdb.RestGraphDat
             indexManager.forRelationships(indexName).remove(relationship);
         }
     }
-
 }

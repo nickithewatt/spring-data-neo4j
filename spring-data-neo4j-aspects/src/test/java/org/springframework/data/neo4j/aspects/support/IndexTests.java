@@ -20,21 +20,14 @@ import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.neo4j.graphdb.DynamicRelationshipType;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.PropertyContainer;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.helpers.collection.IteratorUtil;
-import org.springframework.data.neo4j.annotation.Indexed;
-import org.springframework.data.neo4j.annotation.NodeEntity;
 import org.springframework.data.neo4j.aspects.Friendship;
 import org.springframework.data.neo4j.aspects.Group;
 import org.springframework.data.neo4j.aspects.Person;
 import org.springframework.data.neo4j.aspects.SubGroup;
 import org.springframework.data.neo4j.repository.GraphRepository;
-import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.CleanContextCacheTestExecutionListener;
 import org.springframework.test.context.ContextConfiguration;
@@ -48,9 +41,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 import static org.springframework.data.neo4j.aspects.Person.NAME_INDEX;
 import static org.springframework.data.neo4j.aspects.Person.persistedPerson;
 
@@ -93,14 +84,11 @@ public class IndexTests extends EntityTestBase {
     //@Transactional
     //@Ignore("remove property from index not workin")
     public void testRemovePropertyFromIndex() {
-        Transaction tx = neo4jTemplate.getGraphDatabase().beginTx();
-        try {
+        try (Transaction tx = neo4jTemplate.getGraphDatabase().beginTx()) {
             Group group = persist(new Group());
             group.setName(NAME_VALUE);
             getGroupIndex().remove(getNodeState(group), NAME);
             tx.success();
-        } finally {
-            tx.finish();
         }
         final Group found = this.groupRepository.findByPropertyValue(NAME, NAME_VALUE);
         assertNull("Group.name removed from index", found);
@@ -154,96 +142,6 @@ public class IndexTests extends EntityTestBase {
         assertEquals(group, found);
     }
 
-    @NodeEntity
-    static class InvalidIndexed {
-
-        @Indexed(indexType=IndexType.FULLTEXT)
-        String fulltextNoIndexName;
-
-        @Indexed(indexType=IndexType.FULLTEXT, indexName = "InvalidIndexed")
-        String fullTextDefaultIndexName;
-
-        public void setFulltextNoIndexName(String fulltextNoIndexName) {
-            this.fulltextNoIndexName = fulltextNoIndexName;
-        }
-
-        public void setFullTextDefaultIndexName(String fullTextDefaultIndexName) {
-            this.fullTextDefaultIndexName = fullTextDefaultIndexName;
-        }
-    }
-    
-    @NodeEntity
-    static class InvalidSpatialIndexed1 {
-
-        @Indexed(indexType=IndexType.POINT, indexName = "InvalidSpatialIndexed1")
-        String wkt;
-
-        public void setWkt(String wkt) {
-            this.wkt = wkt;
-        }
-    }
-    @NodeEntity
-    static class InvalidSpatialIndexed2 {
-
-        @Indexed(indexType=IndexType.POINT)
-        String wkt;
-
-        public void setWkt(String wkt) {
-            this.wkt = wkt;
-        }
-    }
-    @NodeEntity
-    static class InvalidSpatialIndexed3 {
-
-
-        @Indexed(indexType=IndexType.POINT, indexName = "pointLayer")
-        String wkt;
-
-        public void setWkt(String wkt) {
-            this.wkt = wkt;
-        }
-    }
-
-    @Test(expected = IllegalStateException.class)
-    @Transactional
-    public void indexAccessWithFullAndNoSpatialIndexNameShouldFail() {
-        InvalidSpatialIndexed1 invalidIndexed = persist(new InvalidSpatialIndexed1());
-        String latlon = "POINT (55 15)";
-        invalidIndexed.setWkt(latlon);
-    }
-    
-    @Test(expected = IllegalStateException.class)
-    @Transactional
-    public void indexAccessWithDefaultSpatialIndexNameShouldFail() {
-        InvalidSpatialIndexed2 invalidIndexed = persist(new InvalidSpatialIndexed2());
-        String latlon = "POINT (55 15)";
-        invalidIndexed.setWkt( latlon);
-    }
-    
-    @Test
-    @Transactional
-    public void indexAccessWithValidSpatialIndexName() {
-        InvalidSpatialIndexed3 invalidIndexed = persist(new InvalidSpatialIndexed3());
-        String latlon = "POINT (55 15)";
-        invalidIndexed.setWkt( latlon);
-    }
-    
-    @Test(expected = IllegalStateException.class)
-    @Transactional
-    @Ignore
-    public void indexAccessWithFullAndNoIndexNameShouldFail() {
-        InvalidIndexed invalidIndexed = persist(new InvalidIndexed());
-        invalidIndexed.setFulltextNoIndexName(NAME_VALUE);
-    }
-
-    @Test(expected = IllegalStateException.class)
-    @Transactional
-    public void indexAccessWithFullAndDefaultIndexNameShouldFail() {
-        InvalidIndexed invalidIndexed = persist(new InvalidIndexed());
-        invalidIndexed.setFullTextDefaultIndexName(NAME_VALUE);
-    }
-
-
     @Test
     @Transactional
     @Ignore
@@ -272,7 +170,7 @@ public class IndexTests extends EntityTestBase {
         group2.setName(NAME_VALUE);
         final Iterable<Group> found = this.groupRepository.findAllByPropertyValue(NAME, NAME_VALUE);
         final Collection<Group> result = IteratorUtil.addToCollection(found.iterator(), new HashSet<Group>());
-        assertEquals(new HashSet<Group>(Arrays.asList(group, group2)), result);
+        assertEquals(new HashSet<>(Arrays.asList(group, group2)), result);
     }
 
     @Test
@@ -298,7 +196,7 @@ public class IndexTests extends EntityTestBase {
         group.setFullTextName("queryableName");
         final Iterable<Group> found = groupRepository.findAllByQuery(Group.SEARCH_GROUPS_INDEX, "fullTextName", "queryable*");
         final Collection<Group> result = IteratorUtil.addToCollection(found.iterator(), new HashSet<Group>());
-        assertEquals(new HashSet<Group>(Arrays.asList(group)), result);
+        assertEquals(new HashSet<>(Arrays.asList(group)), result);
     }
 
     @Test
@@ -371,7 +269,7 @@ public class IndexTests extends EntityTestBase {
             p = persistedPerson(NAME_VALUE2, 30);
             tx.success();
         } finally {
-            if (tx != null) tx.finish();
+            if (tx != null) tx.close();
         }
         Assert.assertEquals(p, personRepository.findByPropertyValue(NAME_INDEX, "name", NAME_VALUE2));
         try {
@@ -379,7 +277,7 @@ public class IndexTests extends EntityTestBase {
             p.setName(NAME_VALUE);
             tx.success();
         } finally {
-            tx.finish();
+            tx.close();
         }
         Assert.assertEquals(p,  personRepository.findByPropertyValue(NAME_INDEX, "name", NAME_VALUE));
         try {
@@ -387,7 +285,7 @@ public class IndexTests extends EntityTestBase {
             p.setName(NAME_VALUE2);
             tx.success();
         } finally {
-            tx.finish();
+            tx.close();
         }
         Assert.assertEquals(p,  personRepository.findByPropertyValue(NAME_INDEX, "name", NAME_VALUE2));
     }

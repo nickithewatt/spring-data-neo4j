@@ -25,10 +25,12 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.helpers.collection.ClosableIterable;
 import org.neo4j.helpers.collection.IteratorUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.neo4j.annotation.Indexed;
 import org.springframework.data.neo4j.annotation.NodeEntity;
 import org.springframework.data.neo4j.aspects.support.EntityTestBase;
 import org.springframework.data.neo4j.core.NodeTypeRepresentationStrategy;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
+import org.springframework.data.neo4j.support.index.IndexType;
 import org.springframework.data.neo4j.support.mapping.Neo4jMappingContext;
 import org.springframework.data.neo4j.support.mapping.StoredEntityType;
 import org.springframework.data.neo4j.support.typerepresentation.LabelBasedNodeTypeRepresentationStrategy;
@@ -45,6 +47,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends EntityTestBase {
 
@@ -58,7 +61,7 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
 
     protected Thing thing;
     protected SubThing subThing;
-    protected SubThing subSubThing;
+    protected SubSubThing subSubThing;
     protected StoredEntityType thingType;
     protected StoredEntityType subThingType;
     protected StoredEntityType subSubThingType;
@@ -96,7 +99,12 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
                 IteratorUtil.addToCollection(allThings, new HashSet<Node>()));
 	}
 
-	@Test
+    @Test
+    public void testAssertLabelIndexOrNot() throws Exception {
+        assertFalse("not label based", nodeTypeRepresentationStrategy.isLabelBased());
+    }
+
+    @Test
 	@Transactional
 	public void testCountOfSuperTypeIncludesSubTypes() throws Exception {
         final int EXPECTED_NUM_THINGS = 1;
@@ -169,7 +177,7 @@ public abstract class AbstractNodeTypeRepresentationStrategyTestBase extends Ent
 			tx.success();
 			return thing;
 		} finally {
-			tx.finish();
+			tx.close();
 		}
 	}
 

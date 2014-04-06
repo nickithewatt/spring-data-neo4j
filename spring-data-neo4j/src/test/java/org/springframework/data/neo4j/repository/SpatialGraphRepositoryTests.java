@@ -17,12 +17,18 @@
 package org.springframework.data.neo4j.repository;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.geo.*;
 import org.springframework.data.neo4j.model.Person;
+import org.springframework.data.neo4j.model.Personality;
+import org.springframework.data.neo4j.repositories.FriendshipRepository;
+import org.springframework.data.neo4j.repositories.GroupRepository;
+import org.springframework.data.neo4j.repositories.PersonRepository;
 import org.springframework.data.neo4j.support.Neo4jTemplate;
 import org.springframework.data.neo4j.support.node.Neo4jHelper;
 import org.springframework.test.context.CleanContextCacheTestExecutionListener;
@@ -58,7 +64,8 @@ public class SpatialGraphRepositoryTests {
     @Autowired
     GroupRepository groupRepository;
 
-    @Autowired FriendshipRepository friendshipRepository;
+    @Autowired
+    FriendshipRepository friendshipRepository;
 
     
     @Autowired
@@ -87,14 +94,71 @@ public class SpatialGraphRepositoryTests {
     }
 
     @Test
+    public void testFindPeopleWithinBoundingBoxShape() {
+        Iterable<Person> teamMembers = personRepository.findWithinBoundingBox("personLayer", new Box(new Point(15, 55), new Point(17, 57)));
+        assertThat(asCollection(teamMembers), hasItems(testTeam.michael, testTeam.david));
+    }
+
+    @Test
+    public void testFindPeopleWithinBoundingBoxShapeDerived() {
+        Iterable<Person> teamMembers = personRepository.findByWktWithin(new Box(new Point(15, 55), new Point(17, 57)));
+        assertThat(asCollection(teamMembers), hasItems(testTeam.michael, testTeam.david));
+    }
+
+    @Test
     public void testFindPeopleWithinPolygon() {
         Iterable<Person> teamMembers = personRepository.findWithinWellKnownText("personLayer", "POLYGON ((15 55, 15 57, 17 57, 17 55, 15 55))");
         assertThat(asCollection(teamMembers), hasItems(testTeam.michael, testTeam.david));
     }
 
     @Test
-    public void testFindPeopleWithinDistance() {
-        Iterable<Person> teamMembers = personRepository.findWithinDistance("personLayer", 16,56,70);
+    public void testFindPeopleWithinPolygonShape() {
+        Iterable<Person> teamMembers = personRepository.findWithinShape("personLayer", new Polygon(new Point(15,55),new Point(15,57), new Point(17,57),new Point(17,55)));
         assertThat(asCollection(teamMembers), hasItems(testTeam.michael, testTeam.david));
+    }
+
+    @Test
+    public void testFindPeopleWithinPolygonShapeDerived() {
+        Iterable<Person> teamMembers = personRepository.findByWktWithinAndPersonality(new Polygon(new Point(15, 55), new Point(15, 57), new Point(17, 57), new Point(17, 55)), Personality.EXTROVERT);
+        assertThat(asCollection(teamMembers), hasItems(testTeam.michael));
+    }
+
+    @Test
+    public void testFindPeopleWithinDistance() {
+        Iterable<Person> teamMembers = personRepository.findWithinDistance("personLayer", 56,16,70);
+        assertThat(asCollection(teamMembers), hasItems(testTeam.michael, testTeam.david));
+    }
+
+    @Test
+    public void testFindPeopleWithinCircle() {
+        Iterable<Person> teamMembers = personRepository.findWithinDistance("personLayer", new Circle(new Point(16,56),new Distance(70, Metrics.KILOMETERS)));
+        assertThat(asCollection(teamMembers), hasItems(testTeam.michael, testTeam.david));
+    }
+
+    @Test
+    public void testFindPeopleNearCircleDerived() {
+        Iterable<Person> teamMembers = personRepository.findByWktNearAndName(new Circle(new Point(16,56),new Distance(70, Metrics.KILOMETERS)),"David");
+        assertThat(asCollection(teamMembers), contains(testTeam.david));
+    }
+    @Test
+    public void testFindPeopleWithinCircleDerived() {
+        Iterable<Person> teamMembers = personRepository.findByWktWithinAndAgeGreaterThan(new Circle(new Point(16, 56), new Distance(70, Metrics.KILOMETERS)),30);
+        assertThat(asCollection(teamMembers), contains(testTeam.michael));
+    }
+
+    @Test
+    @Ignore
+    public void testPerformance() throws Exception {
+        long time=System.currentTimeMillis();
+        for (int i=0;i<5000;i++) {
+            if (i % 1000 == 0) {
+                long now = System.currentTimeMillis();
+                System.out.println(i+". entries " + (now-time));
+                time=now;
+            }
+            Person person = new Person("John " + i, 40 + i);
+            person.setLocation((i % 180) - 90,(i % 180) - 90);
+            personRepository.save(person);
+        }
     }
 }

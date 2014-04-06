@@ -42,7 +42,7 @@ public class TraversalFieldAccessorFactory implements FieldAccessorFactory {
 
     @Override
     public boolean accept(final Neo4jPersistentProperty f) {
-        final GraphTraversal graphEntityTraversal = f.getAnnotation(GraphTraversal.class);
+        final GraphTraversal graphEntityTraversal = f.findAnnotation(GraphTraversal.class);
         return graphEntityTraversal != null
                 && graphEntityTraversal.traversal() != FieldTraversalDescriptionBuilder.class
                 && f.getType().equals(Iterable.class);
@@ -68,7 +68,7 @@ public class TraversalFieldAccessorFactory implements FieldAccessorFactory {
         public TraversalFieldAccessor(final Neo4jPersistentProperty property, Neo4jTemplate template) {
 	        this.property = property;
             this.template = template;
-            final GraphTraversal graphEntityTraversal = property.getAnnotation(GraphTraversal.class);
+            final GraphTraversal graphEntityTraversal = property.findAnnotation(GraphTraversal.class);
 	        this.target = resolveTarget(graphEntityTraversal,property);
             this.params = graphEntityTraversal.params();
             this.fieldTraversalDescriptionBuilder = createTraversalDescription(graphEntityTraversal);
@@ -77,11 +77,18 @@ public class TraversalFieldAccessorFactory implements FieldAccessorFactory {
         private Class<?> resolveTarget(GraphTraversal graphTraversal, Neo4jPersistentProperty property) {
             if (!graphTraversal.elementClass().equals(Object.class)) return graphTraversal.elementClass();
             final Class<?> result = property.getTypeInformation().getActualType().getType();
+
+            Class<?>[] allowedTypes={Node.class,Relationship.class, Path.class};
+            if (checkTypes(result,allowedTypes)) {
+                return result;
+            }
+
+            // Strict mode causes problem if these checks are done before the above
             if (template.isNodeEntity(result)) return result;
             if (template.isRelationshipEntity(result)) return result;
-            Class<?>[] allowedTypes={Node.class,Relationship.class, Path.class};
-            if (!checkTypes(result,allowedTypes)) throw new IllegalArgumentException("The target result type "+result+" of the traversal is no subclass of the allowed types: "+property+" "+allowedTypes);
-            return result;
+
+            throw new IllegalArgumentException("The target result type "+result+" of the traversal is no subclass of the allowed types: "+property+" "+allowedTypes);
+
         }
 
         private boolean checkTypes(Class<?> target, Class<?>...allowedTypes) {

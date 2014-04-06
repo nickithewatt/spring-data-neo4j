@@ -24,5 +24,5 @@ import org.springframework.data.repository.NoRepositoryBean;
  * @since 12.01.11
  */
 @NoRepositoryBean
-public interface GraphRepository<T> extends CRUDRepository<T>, IndexRepository<T>, TraversalRepository<T> {
+public interface GraphRepository<T> extends CRUDRepository<T>, IndexRepository<T>, SchemaIndexRepository<T>, TraversalRepository<T> {
 }

@@ -20,6 +20,8 @@ import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.index.Index;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
+import org.neo4j.kernel.GraphDatabaseAPI;
+import org.neo4j.kernel.impl.core.NodeManager;
 import org.neo4j.tooling.GlobalGraphOperations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,29 +77,34 @@ public abstract class Neo4jHelper {
             tx.failure();
             throw new org.springframework.data.neo4j.core.UncategorizedGraphStoreException("Error cleaning database ",t);
         } finally {
-            tx.finish();
+            tx.close();
         }
     }
 
     private static void removeNodes(GraphDatabaseService graphDatabaseService, boolean includeReferenceNode) {
+        GraphDatabaseAPI api = (GraphDatabaseAPI) graphDatabaseService;
+        NodeManager nodeManager = api.getDependencyResolver().resolveDependency(NodeManager.class);
         final GlobalGraphOperations globalGraphOperations = GlobalGraphOperations.at(graphDatabaseService);
         for (Node node : globalGraphOperations.getAllNodes()) {
             for (Relationship rel : node.getRelationships(Direction.OUTGOING)) {
                 try {
+                    if (nodeManager.isDeleted(rel)) continue;
                     rel.delete();
                 } catch(IllegalStateException ise) {
                     if (!ise.getMessage().contains("since it has already been deleted")) throw ise;
                 }
 
             }
+            for (Label label: node.getLabels()) {
+                node.removeLabel(label);
+            }
         }
         for (Node node : globalGraphOperations.getAllNodes()) {
-            if (includeReferenceNode || !graphDatabaseService.getReferenceNode().equals(node)) {
-                try {
-                    node.delete();
-                } catch(IllegalStateException ise) {
-                    if (!ise.getMessage().contains("since it has already been deleted")) throw ise;
-                }
+            try {
+                if (nodeManager.isDeleted(node)) continue;
+                node.delete();
+            } catch(IllegalStateException ise) {
+                if (!ise.getMessage().contains("since it has already been deleted")) throw ise;
             }
         }
     }
